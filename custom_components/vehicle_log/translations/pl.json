@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dziennik pojazdu",
+        "description": "Skonfiguruj dziennik serwisowy pojazdów. Dodaje panel w pasku bocznym; nie wymaga dalszej konfiguracji."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Dziennik pojazdu jest już skonfigurowany. Dozwolona jest tylko jedna instancja."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "odometer": {
+        "name": "Przebieg"
+      },
+      "forecast_odometer": {
+        "name": "Przebieg prognozowany"
+      },
+      "consumption": {
+        "name": "Spalanie"
+      },
+      "remaining_km": {
+        "name": "{reminder} pozostały dystans"
+      },
+      "remaining_days": {
+        "name": "{reminder} pozostałe dni"
+      },
+      "progress": {
+        "name": "{reminder} postęp"
+      }
+    },
+    "binary_sensor": {
+      "odometer_update_due": {
+        "name": "Wymagana aktualizacja przebiegu"
+      },
+      "due": {
+        "name": "{reminder} termin"
+      }
+    }
+  }
+}

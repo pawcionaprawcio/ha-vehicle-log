@@ -1,0 +1,13 @@
+{
+  "domain": "vehicle_log",
+  "name": "Vehicle Log",
+  "version": "0.1.0",
+  "codeowners": ["@pawcionaprawcio"],
+  "config_flow": true,
+  "dependencies": ["http", "panel_custom", "websocket_api"],
+  "documentation": "https://github.com/pawcionaprawcio/ha-vehicle-log",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/pawcionaprawcio/ha-vehicle-log/issues",
+  "requirements": []
+}

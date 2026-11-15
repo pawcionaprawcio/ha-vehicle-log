@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vehicle Log",
+        "description": "Set up the Vehicle Log service journal. It adds a sidebar panel; no further configuration is needed."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Vehicle Log is already set up. Only one instance is allowed."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "odometer": {
+        "name": "Odometer"
+      },
+      "forecast_odometer": {
+        "name": "Forecast odometer"
+      },
+      "consumption": {
+        "name": "Fuel consumption"
+      },
+      "remaining_km": {
+        "name": "{reminder} remaining distance"
+      },
+      "remaining_days": {
+        "name": "{reminder} remaining days"
+      },
+      "progress": {
+        "name": "{reminder} progress"
+      }
+    },
+    "binary_sensor": {
+      "odometer_update_due": {
+        "name": "Odometer update due"
+      },
+      "due": {
+        "name": "{reminder} due"
+      }
+    }
+  }
+}
