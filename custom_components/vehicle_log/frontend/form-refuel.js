@@ -15,13 +15,27 @@ export class VlRefuelForm extends VlForm {
     if (changed.has("entry") || !this._f) this._init();
   }
 
+  /** Fuels to offer: the vehicle's own, or the whole catalog for a vehicle without any set. */
+  get _ownFuels() {
+    return this.vehicle?.fuel_types || [];
+  }
+
+  _fuelOptions() {
+    const own = this._ownFuels;
+    if (!own.length) return this.view?.fuel_types || [];
+    // an older refuel may hold a fuel the vehicle no longer has; keep it selectable when editing it
+    const current = this.entry?.fuel_type;
+    return current && !own.includes(current) ? [...own, current] : own;
+  }
+
   _init() {
     const e = this.entry || {};
-    const types = this.view?.fuel_types || [];
+    const types = this._fuelOptions();
     let fuel = e.fuel_type;
     if (!this.editing) {
       const last = (this.vehicle?.entries || []).find((x) => x.kind === "refuel" && x.fuel_type);
-      fuel = storage.get(`vehicle_log.fuel.${this.vehicle?.id}`) || last?.fuel_type || types[0] || "";
+      fuel = [storage.get(`vehicle_log.fuel.${this.vehicle?.id}`), last?.fuel_type].find((x) => x && types.includes(x))
+        || types[0] || "";
     }
     const known = !fuel || types.includes(fuel);
     this._order = [];
@@ -115,7 +129,8 @@ export class VlRefuelForm extends VlForm {
 
   renderBody() {
     const f = this._f;
-    const types = this.view?.fuel_types || [];
+    const types = this._fuelOptions();
+    const ownOnly = this._ownFuels.length > 0;
     return html`<div class="body">
       ${this._amount("Koszt (zł)", "total")} ${this._amount("Cena za litr (zł)", "price_per_litre")}
       ${this._amount("Litry", "litres")}
@@ -124,7 +139,7 @@ export class VlRefuelForm extends VlForm {
         >Rodzaj paliwa
         <select @change=${(e) => this._set("fuel", e.target.value)}>
           ${types.map((t) => html`<option value=${t} ?selected=${f.fuel === t}>${t}</option>`)}
-          <option value=${OTHER} ?selected=${f.fuel === OTHER}>inny…</option>
+          ${ownOnly ? nothing : html`<option value=${OTHER} ?selected=${f.fuel === OTHER}>inny…</option>`}
         </select>
       </label>
       ${f.fuel === OTHER

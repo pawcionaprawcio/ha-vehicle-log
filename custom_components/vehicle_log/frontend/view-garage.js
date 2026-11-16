@@ -134,7 +134,11 @@ export class VlGarage extends LitElement {
               <div class="main">
                 <div class="name">${v.name}</div>
                 <div class="sub">
-                  ${[v.purchase_date ? `zakup ${fmtDate(v.purchase_date)}` : null, v.odometer !== null ? fmtKm(v.odometer) : null]
+                  ${[
+                    (v.fuel_types || []).join(" + ") || "paliwo: nie wybrano",
+                    v.purchase_date ? `zakup ${fmtDate(v.purchase_date)}` : null,
+                    v.odometer !== null ? fmtKm(v.odometer) : null,
+                  ]
                     .filter(Boolean)
                     .join(" · ") || "brak danych"}
                 </div>

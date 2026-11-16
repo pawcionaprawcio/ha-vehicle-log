@@ -1,10 +1,13 @@
 import { VlForm, html, LIMITS } from "./ui.js";
 
+const MAX_FUELS = 2;
+
 export class VlVehicleForm extends VlForm {
   static properties = {
     ...VlForm.properties,
     _name: { state: true },
     _purchase: { state: true },
+    _fuels: { state: true },
   };
 
   willUpdate(changed) {
@@ -12,6 +15,7 @@ export class VlVehicleForm extends VlForm {
       const v = this.entry || {};
       this._name = v.name || "";
       this._purchase = v.purchase_date || "";
+      this._fuels = [...(v.fuel_types || [])];
     }
   }
 
@@ -29,7 +33,17 @@ export class VlVehicleForm extends VlForm {
       this._error = "Podaj nazwę pojazdu.";
       return;
     }
-    const vehicle = { ...(this.entry || {}), id: this.entry?.id || this._newId, name, purchase_date: this._purchase || null };
+    if (!this._fuels.length) {
+      this._error = "Wybierz rodzaj paliwa (jeden lub dwa).";
+      return;
+    }
+    const vehicle = {
+      ...(this.entry || {}),
+      id: this.entry?.id || this._newId,
+      name,
+      purchase_date: this._purchase || null,
+      fuel_types: this._fuels,
+    };
     await this._call({ type: "vehicle_log/vehicle/save", vehicle });
   }
 
@@ -41,7 +55,30 @@ export class VlVehicleForm extends VlForm {
     return html`<div class="body">
       ${this.field("Nazwa", this._name, (v) => (this._name = v), { maxlength: LIMITS.name, placeholder: "np. Auto rodzinne" })}
       ${this.field("Data zakupu", this._purchase, (v) => (this._purchase = v), { type: "date" })}
+      <div class="fuels">
+        <div class="hint">Rodzaj paliwa (jeden lub dwa, np. Pb95 + LPG)</div>
+        ${(this.view?.fuel_types || []).map((t) => {
+          const on = this._fuels.includes(t);
+          return html`<label class="check">
+            <input
+              type="checkbox"
+              .checked=${on}
+              ?disabled=${!on && this._fuels.length >= MAX_FUELS}
+              @change=${(e) => this._toggleFuel(t, e.target.checked)}
+            />
+            ${t}
+          </label>`;
+        })}
+      </div>
     </div>`;
+  }
+
+  _toggleFuel(fuel, on) {
+    const types = this.view?.fuel_types || [];
+    const next = on ? [...this._fuels, fuel] : this._fuels.filter((f) => f !== fuel);
+    // keep the catalog order so "Pb95 + LPG" reads the same everywhere
+    this._fuels = types.filter((t) => next.includes(t));
+    this._error = undefined;
   }
 }
 customElements.define("vl-vehicle-form", VlVehicleForm);

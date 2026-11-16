@@ -8,7 +8,7 @@ Keep a log of service entries, refuels and odometer readings for one or more veh
 
 ## Features
 
-- Several vehicles, each with its own odometer, entries and reminders.
+- Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels.
 - Service entries (oil, filters, brakes, tyres, ...), refuels and odometer updates.
 - Fuel consumption (L/100 km) calculated from full-tank refuels.
 - Reminders by date, mileage or both (for example "every 12 months or 10 000 km"), with ready-made templates.

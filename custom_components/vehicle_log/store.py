@@ -17,7 +17,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .calc import YEAR_MAX, YEAR_MIN, entry_is_valid, entry_total, last_reading, normalize_refuel
-from .const import DEFAULT_SETTINGS, DOMAIN, SERVICE_TYPES
+from .const import DEFAULT_SETTINGS, DOMAIN, FUEL_TYPES, SERVICE_TYPES
 from .xlsx_import import ParsedVehicle
 
 _LOGGER = logging.getLogger(__name__)
@@ -111,6 +111,25 @@ def _check_amount(label: str, value: Any) -> float | None:
     if abs(value) > AMOUNT_MAX:
         raise ValueError(f"{label} is out of range")
     return value
+
+
+VEHICLE_FUEL_TYPES_MAX = 2
+
+
+def _check_fuel_types(value: Any) -> list[str]:
+    """A vehicle's fuels: up to two distinct entries of FUEL_TYPES."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("fuel_types must be a list")
+    if len(value) > VEHICLE_FUEL_TYPES_MAX:
+        raise ValueError(f"at most {VEHICLE_FUEL_TYPES_MAX} fuel types")
+    if len(set(map(repr, value))) != len(value):
+        raise ValueError("fuel_types must not repeat")
+    for fuel in value:
+        if fuel not in FUEL_TYPES:
+            raise ValueError(f"unknown fuel type {fuel!r}")
+    return list(value)
 
 
 def _check_bool(label: str, value: Any) -> bool:
@@ -282,10 +301,14 @@ class VehicleLogStore:
                 v = {**v, "name": f"Pojazd {v['id'][:6]}"}
             elif len(v["name"]) > NAME_MAX:
                 v = {**v, "name": v["name"][:NAME_MAX]}
-            return repair(v, {
+            fixed = repair(v, {
                 "purchase_date": lambda x: _check_date("purchase_date", x),
                 "icon": lambda x: _check_len("icon", x, NAME_MAX),
-            }, {})
+                "fuel_types": _check_fuel_types,
+            }, {"fuel_types": []})
+            if not isinstance(fixed.get("fuel_types"), list):
+                fixed = {**fixed, "fuel_types": []}
+            return fixed
 
         data["vehicles"] = sweep(data["vehicles"], handle_vehicle)
         ids = {v["id"] for v in data["vehicles"]}
@@ -456,6 +479,7 @@ class VehicleLogStore:
             "name": name,
             "purchase_date": _check_date("purchase_date", v.get("purchase_date")),
             "icon": v.get("icon"),
+            "fuel_types": _check_fuel_types(v.get("fuel_types")),
         }
         if not isinstance(vehicle["id"], str):
             raise ValueError("id must be text")
@@ -619,6 +643,7 @@ class VehicleLogStore:
                 vehicle = {
                     "id": _new_id(), "name": pv["name"],
                     "purchase_date": pv["purchase_date"], "icon": None,
+                    "fuel_types": [],
                 }
                 work["vehicles"].append(vehicle)
                 by_name[pv["name"].casefold()] = vehicle
