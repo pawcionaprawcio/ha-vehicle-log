@@ -14,7 +14,8 @@ export class VlGarage extends LitElement {
     hass: { attribute: false },
     wide: { type: Boolean, reflect: true },
     view: { attribute: false },
-    _error: { state: true },
+    _settingsError: { state: true },
+    _importError: { state: true },
     _msg: { state: true },
     _busy: { state: true },
   };
@@ -42,6 +43,7 @@ export class VlGarage extends LitElement {
       .imp .act { display: flex; justify-content: flex-end; margin-top: 4px; }
       .imp .btn { height: 48px; }
       .imp .error, .imp .ok { margin-top: 8px; }
+      .se { padding: 8px 16px 12px; }
       .ok { font-size: 14px; }
       input[type="file"] { display: none; }
     `,
@@ -49,7 +51,8 @@ export class VlGarage extends LitElement {
 
   constructor() {
     super();
-    this._error = "";
+    this._settingsError = "";
+    this._importError = "";
     this._msg = "";
     this._busy = false;
   }
@@ -58,15 +61,15 @@ export class VlGarage extends LitElement {
     this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
 
-  async _run(msg) {
+  async _run(msg, errKey) {
     this._busy = true;
-    this._error = "";
+    this[errKey] = "";
     try {
       const res = await this.hass.callWS(msg);
       this._emit("saved", res.view || res);
       return res;
     } catch (err) {
-      this._error = errorText(err);
+      this[errKey] = errorText(err);
       return null;
     } finally {
       this._busy = false;
@@ -75,19 +78,19 @@ export class VlGarage extends LitElement {
 
   _setting(patch) {
     this._msg = "";
-    return this._run({ type: "vehicle_log/settings/save", settings: patch });
+    return this._run({ type: "vehicle_log/settings/save", settings: patch }, "_settingsError");
   }
 
   _saveDays(e) {
     const text = e.target.value.trim();
     const n = Number(text);
     if (!/^\d+$/.test(text) || n < 1 || n > 3650) {
-      this._error = "Liczba dni musi być od 1 do 3650.";
+      this._settingsError = "Liczba dni musi być od 1 do 3650.";
       e.target.value = this.view.settings.odometer_reminder_days;
       return;
     }
     if (n !== this.view.settings.odometer_reminder_days) this._setting({ odometer_reminder_days: n });
-    else this._error = "";
+    else this._settingsError = "";
   }
 
   async _import(e) {
@@ -95,19 +98,20 @@ export class VlGarage extends LitElement {
     const file = input.files?.[0];
     input.value = "";
     this._msg = "";
+    this._importError = "";
     if (!file) return;
     if (file.size > MAX_IMPORT_BYTES) {
-      this._error = "Plik jest za duży (limit 2 MB).";
+      this._importError = "Plik jest za duży (limit 2 MB).";
       return;
     }
     let content_b64;
     try {
       content_b64 = toBase64(await file.arrayBuffer());
     } catch (err) {
-      this._error = `Nie można odczytać pliku: ${errorText(err)}`;
+      this._importError = `Nie można odczytać pliku: ${errorText(err)}`;
       return;
     }
-    const res = await this._run({ type: "vehicle_log/import_xlsx", content_b64 });
+    const res = await this._run({ type: "vehicle_log/import_xlsx", content_b64 }, "_importError");
     if (res) {
       const r = res.result;
       const wpis = plural(r.entries_added, "wpis", "wpisy", "wpisów");
@@ -126,6 +130,7 @@ export class VlGarage extends LitElement {
     return html`<div class="col">
       <div class="card">
         <div class="card-h">Pojazdy</div>
+        ${vehicles.length ? nothing : html`<div class="empty">Brak pojazdów.</div>`}
         ${vehicles.map(
           (v) => html`<button class="li" @click=${() => this._emit("edit-vehicle", v)}>
             <div class="badge b-primary"><ha-icon icon=${v.icon || "mdi:car"}></ha-icon></div>
@@ -175,18 +180,19 @@ export class VlGarage extends LitElement {
                 .value=${String(s.odometer_reminder_days)} @change=${(e) => this._saveDays(e)} />
             </label>`
           : nothing}
+        ${this._settingsError ? html`<div class="error se" role="alert">${this._settingsError}</div>` : nothing}
       </div>
       <div class="card">
         <div class="card-h">Import</div>
         <div class="imp">
           <div class="t2">Wczytaj eksport .xlsx z aplikacji Car Notes. Istniejące wpisy nie zostaną zdublowane.</div>
           <div class="act">
-            <button class="btn text" ?disabled=${this._busy} @click=${(e) => e.currentTarget.parentElement.nextElementSibling.click()}>
+            <button class="btn text" ?disabled=${this._busy} @click=${(e) => this.renderRoot.querySelector('input[type=file]').click()}>
               <ha-icon icon="mdi:upload"></ha-icon>Wybierz plik
             </button>
           </div>
           <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change=${(e) => this._import(e)} />
-          ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
+          ${this._importError ? html`<div class="error" role="alert">${this._importError}</div>` : nothing}
           ${this._msg ? html`<div class="ok" role="status">${this._msg}</div>` : nothing}
         </div>
       </div>
