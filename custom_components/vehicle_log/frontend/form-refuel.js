@@ -1,5 +1,6 @@
 import { VlForm, html, css, nothing, refuelDerivedKey, parseNum, badNum, intError, toField, fmtDec, fmtInt, todayIso, nowTime, storage } from "./ui.js";
 import { LIMITS } from "./ui.js";
+import { t as tr, fuelLabel } from "./i18n.js";
 
 const OTHER = "__other";
 const AMOUNTS = ["total", "price_per_litre", "litres"];
@@ -77,7 +78,7 @@ export class VlRefuelForm extends VlForm {
   }
 
   get heading() {
-    return "Tankowanie";
+    return tr("refuel");
   }
 
   _set(key, value) {
@@ -113,13 +114,13 @@ export class VlRefuelForm extends VlForm {
     const odoErr = intError(f.odometer);
     if (odoErr) throw new Error(odoErr);
     for (const k of [...AMOUNTS, "odometer", "tax_pct", "discount_pct", "discount_amount"]) {
-      if (badNum(f[k])) throw new Error("Popraw nieprawidłową liczbę.");
+      if (badNum(f[k])) throw new Error(tr("bad_number"));
     }
     const drop = this._derivedKey();
     if (AMOUNTS.filter((k) => parseNum(f[k]) !== null).length < 2 && !drop) {
-      throw new Error("Podaj dwie z trzech wartości: kwota, cena za litr, litry.");
+      throw new Error(tr("two_of_three"));
     }
-    if (!f.date) throw new Error("Podaj datę.");
+    if (!f.date) throw new Error(tr("need_date"));
     const fuel = f.fuel === OTHER ? f.fuel_other.trim() : f.fuel;
     const amounts = Object.fromEntries(AMOUNTS.map((k) => [k, k === drop ? "" : f[k]]));
     const entry = {
@@ -160,61 +161,61 @@ export class VlRefuelForm extends VlForm {
     const f = this._f;
     const types = this._fuelOptions();
     if (this._ownFuels.length) {
-      return html`<div class="seg" role="radiogroup" aria-label="Rodzaj paliwa" @keydown=${(e) => this._segKey(e, types)}>
+      return html`<div class="seg" role="radiogroup" aria-label=${tr("fuel_type")} @keydown=${(e) => this._segKey(e, types)}>
         ${types.map((t, i) => {
           const on = f.fuel === t;
           const tab = on || (!types.includes(f.fuel) && i === 0);
           return html`<button role="radio" tabindex=${tab ? 0 : -1} aria-checked=${on ? "true" : "false"} @click=${() => this._set("fuel", t)}>
-            ${on ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}${t}
+            ${on ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}${fuelLabel(t)}
           </button>`;
         })}
       </div>`;
     }
     return html`<label
-        >Rodzaj paliwa
+        >${tr("fuel_type")}
         <select @change=${(e) => this._set("fuel", e.target.value)}>
-          ${types.map((t) => html`<option value=${t} ?selected=${f.fuel === t}>${t}</option>`)}
-          <option value=${OTHER} ?selected=${f.fuel === OTHER}>inny…</option>
+          ${types.map((t) => html`<option value=${t} ?selected=${f.fuel === t}>${fuelLabel(t)}</option>`)}
+          <option value=${OTHER} ?selected=${f.fuel === OTHER}>${tr("other_fuel_option")}</option>
         </select>
       </label>
       ${f.fuel === OTHER
-        ? this.field("Inne paliwo", f.fuel_other, (v) => this._set("fuel_other", v), { maxlength: 30 })
+        ? this.field(tr("other_fuel"), f.fuel_other, (v) => this._set("fuel_other", v), { maxlength: 30 })
         : nothing}`;
   }
 
   renderBody() {
     const f = this._f;
     return html`<div class="body">
-      ${this._renderFuel()} ${this._amount("Kwota", "total", "zł")}
+      ${this._renderFuel()} ${this._amount(tr("amount"), "total", "zł")}
       <div class="row">
-        ${this._amount("Cena za litr", "price_per_litre", "zł/l")} ${this._amount("Litry", "litres", "l")}
+        ${this._amount(tr("price_per_litre"), "price_per_litre", "zł/l")} ${this._amount(tr("litres"), "litres", "l")}
       </div>
-      <div class="hint">Wpisz dwie wartości, trzecia zostanie wyliczona.</div>
-      ${this.field("Przebieg", f.odometer, (v) => this._set("odometer", v), {
+      <div class="hint">${tr("two_values_hint")}</div>
+      ${this.field(tr("odometer"), f.odometer, (v) => this._set("odometer", v), {
         inputmode: "numeric",
         suffix: "km",
-        placeholder: !this.editing && this.vehicle?.odometer != null ? `ostatnio ${fmtInt(this.vehicle.odometer)}` : "",
+        placeholder: !this.editing && this.vehicle?.odometer != null ? tr("last_value", { value: fmtInt(this.vehicle.odometer) }) : "",
       })}
-      ${this.switchRow("Do pełna", f.full_tank, (v) => this._set("full_tank", v), "Potrzebne do liczenia spalania")}
+      ${this.switchRow(tr("full_tank"), f.full_tank, (v) => this._set("full_tank", v), tr("full_tank_hint"))}
       <div class="row">
-        ${this.field("Data", f.date, (v) => this._set("date", v), { type: "date" })}
-        ${this.field("Godzina", f.time, (v) => this._set("time", v), { type: "time" })}
+        ${this.field(tr("date"), f.date, (v) => this._set("date", v), { type: "date" })}
+        ${this.field(tr("time"), f.time, (v) => this._set("time", v), { type: "time" })}
       </div>
       ${this.expander(
         this._showTax,
-        "Podatek lub rabat",
+        tr("tax_or_discount"),
         () => (this._showTax = true),
-        html`${this.num("Podatek", f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
+        html`${this.num(tr("tax"), f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
           <div class="row">
-            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%", "Rabat (%)")}
-            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", "Rabat (zł)")}
+            ${this.num(tr("discount"), f.discount_pct, (v) => this._set("discount_pct", v), "", "%", tr("discount_pct"))}
+            ${this.num(tr("discount"), f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", tr("discount_amount"))}
           </div>`,
       )}
       ${this.expander(
         this._showComment,
-        "Komentarz",
+        tr("comment"),
         () => (this._showComment = true),
-        this.textArea("Komentarz", f.comment, LIMITS.comment, (v) => this._set("comment", v)),
+        this.textArea(tr("comment"), f.comment, LIMITS.comment, (v) => this._set("comment", v)),
       )}
     </div>`;
   }

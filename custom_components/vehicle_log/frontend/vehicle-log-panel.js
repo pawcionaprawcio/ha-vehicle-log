@@ -1,4 +1,5 @@
 import { LitElement, html, css, nothing, storage, errorText, haStyles } from "./ui.js";
+import { t, setLanguage, localizeTypes } from "./i18n.js";
 import "./view-entries.js";
 import "./form-entry.js";
 import "./form-refuel.js";
@@ -11,19 +12,23 @@ import "./view-garage.js";
 const KEY_VEHICLE = "vehicle_log.vehicle";
 const KEY_TAB = "vehicle_log.tab";
 const TABS = [
-  ["entries", "Wpisy", "mdi:format-list-bulleted"],
-  ["reminders", "Przypomnienia", "mdi:bell-outline"],
-  ["garage", "Garaż", "mdi:garage-variant"],
+  ["entries", "tab_entries", "mdi:format-list-bulleted"],
+  ["reminders", "tab_reminders", "mdi:bell-outline"],
+  ["garage", "tab_garage", "mdi:garage-variant"],
 ];
 const MAX_BACKOFF_MS = 30000;
 
 class VehicleLogPanel extends LitElement {
   static properties = {
-    // Re-render only when the connection changes, not on every state update.
-    hass: { attribute: false, hasChanged: (value, old) => value?.connection !== old?.connection },
+    // Re-render only when the connection or the language changes, not on every state update.
+    hass: {
+      attribute: false,
+      hasChanged: (value, old) => value?.connection !== old?.connection || value?.language !== old?.language,
+    },
     narrow: { type: Boolean, reflect: true },
     panel: { attribute: false },
     _view: { state: true },
+    _lang: { state: true },
     _vehicleId: { state: true },
     _tab: { state: true },
     _sheet: { state: true },
@@ -135,7 +140,7 @@ class VehicleLogPanel extends LitElement {
       else if (this._sheet?.type === "menu") this._sheet = null;
     };
     this._vehicleId = storage.get(KEY_VEHICLE);
-    this._tab = TABS.some((t) => t[0] === storage.get(KEY_TAB)) ? storage.get(KEY_TAB) : "entries";
+    this._tab = TABS.some((tab) => tab[0] === storage.get(KEY_TAB)) ? storage.get(KEY_TAB) : "entries";
     this._token = 0;
     this._retries = 0;
     this._conn = null;
@@ -153,6 +158,23 @@ class VehicleLogPanel extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this._onKey);
     this._teardown();
+  }
+
+  willUpdate(changed) {
+    if (changed.has("hass")) {
+      this._lang = setLanguage(this.hass?.language);
+    }
+  }
+
+  /** service_types from the view, labels in the panel language (cached per view and language). */
+  get _types() {
+    const types = this._view?.service_types;
+    if (this._typesFor !== types || this._typesLang !== this._lang) {
+      this._typesFor = types;
+      this._typesLang = this._lang;
+      this._typesCache = localizeTypes(types);
+    }
+    return this._typesCache;
   }
 
   updated(changed) {
@@ -264,9 +286,9 @@ class VehicleLogPanel extends LitElement {
 
   _addItems() {
     const choices = [
-      ["refuel", "Tankowanie", "mdi:gas-station"],
-      ["service", "Serwis", "mdi:wrench"],
-      ["odometer", "Odczyt przebiegu", "mdi:counter"],
+      ["refuel", t("refuel"), "mdi:gas-station"],
+      ["service", t("service"), "mdi:wrench"],
+      ["odometer", t("odometer_reading"), "mdi:counter"],
     ];
     return choices.map(
       ([type, label, icon]) => html`<button @click=${() => {
@@ -286,7 +308,7 @@ class VehicleLogPanel extends LitElement {
     if (this._pop === "vehicle" && this._showPicker) {
       const vehicles = this._view?.vehicles ?? [];
       return html`<div class="overlay" @click=${() => (this._pop = null)}></div>
-        <div class="pop veh" role="listbox" aria-label="Pojazd">
+        <div class="pop veh" role="listbox" aria-label=${t("vehicle")}>
           ${vehicles.map(
             (v) => html`<button role="option" aria-selected=${v.id === this._vehicleId} @click=${() => this._selectVehicle(v.id)}>
               <span>${v.name}</span>${v.id === this._vehicleId ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}
@@ -331,15 +353,16 @@ class VehicleLogPanel extends LitElement {
     if (!this._view) {
       return html`<div class="empty center">
         ${this._connError
-          ? html`<div class="error" role="alert">Nie można połączyć z integracją: ${this._connError}</div>
-              <div>Ponawiam próbę…</div>`
-          : "Ładowanie…"}
+          ? html`<div class="error" role="alert">${t("conn_error", { error: this._connError })}</div>
+              <div>${t("retrying")}</div>`
+          : t("loading")}
       </div>`;
     }
     if (this._tab === "garage") {
       return html`<vl-garage
         .hass=${this.hass}
         .view=${this._view}
+        .lang=${this._lang}
         ?wide=${!this.narrow}
         @saved=${(e) => this._onSaved(e)}
         @add-vehicle=${() => (this._sheet = { type: "vehicle" })}
@@ -349,15 +372,16 @@ class VehicleLogPanel extends LitElement {
     const v = this._vehicle;
     if (!v) {
       return html`<div class="empty center">
-        Brak pojazdów.<br />
-        <button class="btn fill" @click=${() => (this._sheet = { type: "vehicle" })}>Dodaj pojazd</button>
+        ${t("no_vehicles")}<br />
+        <button class="btn fill" @click=${() => (this._sheet = { type: "vehicle" })}>${t("add_vehicle")}</button>
       </div>`;
     }
     if (this._tab === "reminders") {
       return html`<vl-reminders
         .hass=${this.hass}
         .vehicle=${v}
-        .serviceTypes=${this._view.service_types}
+        .serviceTypes=${this._types}
+        .lang=${this._lang}
         ?narrow=${this.narrow}
         ?wide=${!this.narrow}
         .openId=${this._openId}
@@ -369,7 +393,8 @@ class VehicleLogPanel extends LitElement {
     }
     return html`<vl-entries
       .vehicle=${v}
-      .serviceTypes=${this._view.service_types}
+      .serviceTypes=${this._types}
+        .lang=${this._lang}
       ?wide=${!this.narrow}
       @edit-entry=${(e) => this._openEdit(e.detail)}
     ></vl-entries>`;
@@ -380,27 +405,27 @@ class VehicleLogPanel extends LitElement {
     const showFab = this._view && this._vehicle && this._tab !== "garage";
     const showPicker = this._showPicker;
     const tabBtn = ([id, label, icon]) => html`<button aria-current=${this._tab === id ? "page" : "false"} @click=${() => this._selectTab(id)}>
-      <ha-icon icon=${icon}></ha-icon>${label}
+      <ha-icon icon=${icon}></ha-icon>${t(label)}
     </button>`;
     return html`
       <div class="toolbar">
         ${this.narrow
-          ? html`<button class="icon-btn" aria-label="Menu" @click=${() => this._toggleMenu()}>
+          ? html`<button class="icon-btn" aria-label=${t("menu")} @click=${() => this._toggleMenu()}>
               <ha-icon icon="mdi:menu"></ha-icon>
             </button>`
           : nothing}
-        <h1>Dziennik pojazdu</h1>
+        <h1>${t("title")}</h1>
         ${this.narrow ? nothing : html`<div class="tabs">${TABS.map(tabBtn)}</div>`}
         ${showPicker
-          ? html`<button class="picker" aria-haspopup="listbox" aria-label="Pojazd" @click=${() => (this._pop = this._pop === "vehicle" ? null : "vehicle")}>
+          ? html`<button class="picker" aria-haspopup="listbox" aria-label=${t("vehicle")} @click=${() => (this._pop = this._pop === "vehicle" ? null : "vehicle")}>
               <ha-icon icon="mdi:car"></ha-icon><span>${this._vehicle?.name ?? ""}</span><ha-icon icon="mdi:menu-down"></ha-icon>
             </button>`
           : nothing}
       </div>
       <main><div class="content" @open-reminder=${(e) => this._onOpenReminder(e)}>${this._renderContent()}</div></main>
       ${showFab
-        ? html`<button class="fab" aria-label=${this._tab === "reminders" ? "Dodaj przypomnienie" : "Dodaj"} @click=${() => this._onFab()}>
-            <ha-icon icon="mdi:plus"></ha-icon>${this._tab === "reminders" ? "Przypomnienie" : "Dodaj"}
+        ? html`<button class="fab" aria-label=${this._tab === "reminders" ? t("add_reminder") : t("add")} @click=${() => this._onFab()}>
+            <ha-icon icon="mdi:plus"></ha-icon>${this._tab === "reminders" ? t("reminder") : t("add")}
           </button>`
         : nothing}
       ${this.narrow ? html`<nav>${TABS.map(tabBtn)}</nav>` : nothing}

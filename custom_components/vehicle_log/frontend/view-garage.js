@@ -1,4 +1,5 @@
-import { LitElement, html, css, nothing, haStyles, fmtDate, fmtKm, errorText, plural } from "./ui.js";
+import { LitElement, html, css, nothing, haStyles, fmtDate, fmtKm, errorText } from "./ui.js";
+import { t, fuelLabel } from "./i18n.js";
 
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
@@ -14,6 +15,7 @@ export class VlGarage extends LitElement {
     hass: { attribute: false },
     wide: { type: Boolean, reflect: true },
     view: { attribute: false },
+    lang: { attribute: false },
     _settingsError: { state: true },
     _importError: { state: true },
     _msg: { state: true },
@@ -85,7 +87,7 @@ export class VlGarage extends LitElement {
     const text = e.target.value.trim();
     const n = Number(text);
     if (!/^\d+$/.test(text) || n < 1 || n > 3650) {
-      this._settingsError = "Liczba dni musi być od 1 do 3650.";
+      this._settingsError = t("days_range");
       e.target.value = this.view.settings.odometer_reminder_days;
       return;
     }
@@ -101,25 +103,22 @@ export class VlGarage extends LitElement {
     this._importError = "";
     if (!file) return;
     if (file.size > MAX_IMPORT_BYTES) {
-      this._importError = "Plik jest za duży (limit 2 MB).";
+      this._importError = t("file_too_big");
       return;
     }
     let content_b64;
     try {
       content_b64 = toBase64(await file.arrayBuffer());
     } catch (err) {
-      this._importError = `Nie można odczytać pliku: ${errorText(err)}`;
+      this._importError = t("file_read_error", { error: errorText(err) });
       return;
     }
     const res = await this._run({ type: "vehicle_log/import_xlsx", content_b64 }, "_importError");
     if (res) {
       const r = res.result;
-      const wpis = plural(r.entries_added, "wpis", "wpisy", "wpisów");
       this._msg =
-        `Dodano ${r.entries_added} ${wpis}, pominięto ${r.entries_skipped}.` +
-        (r.vehicles_added
-          ? ` Dodano ${r.vehicles_added} ${plural(r.vehicles_added, "nowy pojazd", "nowe pojazdy", "nowych pojazdów")}.`
-          : "");
+        t("import_done", { added: r.entries_added, skipped: r.entries_skipped }) +
+        (r.vehicles_added ? t("import_vehicles", { n: r.vehicles_added }) : "");
     }
   }
 
@@ -129,8 +128,8 @@ export class VlGarage extends LitElement {
     if (!s) return nothing;
     return html`<div class="col">
       <div class="card">
-        <div class="card-h">Pojazdy</div>
-        ${vehicles.length ? nothing : html`<div class="empty">Brak pojazdów.</div>`}
+        <div class="card-h">${t("vehicles")}</div>
+        ${vehicles.length ? nothing : html`<div class="empty">${t("no_vehicles")}</div>`}
         ${vehicles.map(
           (v) => html`<button class="li" @click=${() => this._emit("edit-vehicle", v)}>
             <div class="badge b-primary"><ha-icon icon=${v.icon || "mdi:car"}></ha-icon></div>
@@ -138,10 +137,10 @@ export class VlGarage extends LitElement {
               <div class="t1">${v.name}</div>
               <div class="t2 sub ${v.error ? "err" : ""}">
                 ${v.error
-                  ? "Błąd danych"
+                  ? t("data_error")
                   : [
-                      (v.fuel_types || []).join(" + ") || "Paliwo nie wybrane",
-                      v.purchase_date ? `zakup ${fmtDate(v.purchase_date)}` : null,
+                      (v.fuel_types || []).map(fuelLabel).join(" + ") || t("no_fuel"),
+                      v.purchase_date ? t("bought", { date: fmtDate(v.purchase_date) }) : null,
                       v.odometer !== null && v.odometer !== undefined ? fmtKm(v.odometer) : null,
                     ]
                       .filter(Boolean)
@@ -152,43 +151,43 @@ export class VlGarage extends LitElement {
           </button>`,
         )}
         <button class="li add" @click=${() => this._emit("add-vehicle")}>
-          <ha-icon icon="mdi:plus"></ha-icon><span>Dodaj pojazd</span>
+          <ha-icon icon="mdi:plus"></ha-icon><span>${t("add_vehicle")}</span>
         </button>
       </div>
       <div class="card">
-        <div class="card-h">Ustawienia</div>
+        <div class="card-h">${t("settings")}</div>
         <label class="li">
           <div class="m">
-            <div class="t1">Szacuj przebieg</div>
-            <div class="hint">Na podstawie dotychczasowej jazdy</div>
+            <div class="t1">${t("forecast_setting")}</div>
+            <div class="hint">${t("forecast_hint")}</div>
           </div>
           <input type="checkbox" class="switch" role="switch" .checked=${s.forecast_enabled} ?disabled=${this._busy}
             @change=${(e) => this._setting({ forecast_enabled: e.target.checked })} />
         </label>
         <label class="li">
           <div class="m">
-            <div class="t1">Przypominaj o przebiegu</div>
-            <div class="hint">Gdy brak odczytu przez podaną liczbę dni</div>
+            <div class="t1">${t("odo_reminder_setting")}</div>
+            <div class="hint">${t("odo_reminder_hint")}</div>
           </div>
           <input type="checkbox" class="switch" role="switch" .checked=${s.odometer_reminder_enabled} ?disabled=${this._busy}
             @change=${(e) => this._setting({ odometer_reminder_enabled: e.target.checked })} />
         </label>
         ${s.odometer_reminder_enabled
           ? html`<label class="li days">
-              <div class="m"><div class="t1">Dni bez odczytu</div></div>
-              <input class="num" inputmode="numeric" aria-label="Dni bez odczytu przebiegu"
+              <div class="m"><div class="t1">${t("days_without")}</div></div>
+              <input class="num" inputmode="numeric" aria-label=${t("days_without_aria")}
                 .value=${String(s.odometer_reminder_days)} @change=${(e) => this._saveDays(e)} />
             </label>`
           : nothing}
         ${this._settingsError ? html`<div class="error se" role="alert">${this._settingsError}</div>` : nothing}
       </div>
       <div class="card">
-        <div class="card-h">Import</div>
+        <div class="card-h">${t("import")}</div>
         <div class="imp">
-          <div class="t2">Wczytaj eksport .xlsx z aplikacji Car Notes. Istniejące wpisy nie zostaną zdublowane.</div>
+          <div class="t2">${t("import_hint")}</div>
           <div class="act">
             <button class="btn text" ?disabled=${this._busy} @click=${(e) => this.renderRoot.querySelector('input[type=file]').click()}>
-              <ha-icon icon="mdi:upload"></ha-icon>Wybierz plik
+              <ha-icon icon="mdi:upload"></ha-icon>${t("choose_file")}
             </button>
           </div>
           <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change=${(e) => this._import(e)} />

@@ -1,4 +1,5 @@
 import { typeRow } from "./type-picker.js";
+import { t, localizeTypes } from "./i18n.js";
 import { VlForm, html, nothing, parseNum, badNum, intError, toField, fmtDec, todayIso, entryTotal, LIMITS } from "./ui.js";
 
 const NUMERIC = ["odometer", "parts", "labour", "total", "tax_pct", "discount_pct", "discount_amount"];
@@ -41,7 +42,7 @@ export class VlEntryForm extends VlForm {
   }
 
   get heading() {
-    return this._step === 1 ? "Wybierz rodzaj" : this.editing ? "Edytuj serwis" : "Dodaj serwis";
+    return this._step === 1 ? t("choose_type") : this.editing ? t("edit_service") : t("add_service");
   }
 
   _set(key, value) {
@@ -69,10 +70,10 @@ export class VlEntryForm extends VlForm {
     const total = this._totalTouched ? f.total : this._autoTotal();
     const odoErr = intError(f.odometer);
     if (odoErr) throw new Error(odoErr);
-    for (const k of NUMERIC) if (badNum(f[k])) throw new Error("Popraw nieprawidłową liczbę.");
-    if (badNum(total)) throw new Error("Popraw nieprawidłową liczbę.");
-    if (!f.name.trim()) throw new Error("Podaj nazwę.");
-    if (!f.date) throw new Error("Podaj datę.");
+    for (const k of NUMERIC) if (badNum(f[k])) throw new Error(t("bad_number"));
+    if (badNum(total)) throw new Error(t("bad_number"));
+    if (!f.name.trim()) throw new Error(t("need_name"));
+    if (!f.date) throw new Error(t("need_date"));
     return {
       ...(this.entry || {}),
       kind: "service",
@@ -95,7 +96,7 @@ export class VlEntryForm extends VlForm {
 
   _renderPicker() {
     return html`<vl-type-picker
-      .serviceTypes=${this.view?.service_types}
+      .serviceTypes=${localizeTypes(this.view?.service_types)}
       @pick=${(e) => this._pickType(e.detail.id, e.detail.label)}
     ></vl-type-picker>`;
   }
@@ -103,30 +104,30 @@ export class VlEntryForm extends VlForm {
   renderBody() {
     if (this._step === 1) return this._renderPicker();
     const f = this._f;
-    const type = this.view?.service_types?.[f.service_type];
+    const type = localizeTypes(this.view?.service_types)?.[f.service_type];
     return html`<div class="body">
       ${this.editing ? nothing : typeRow(type, () => (this._step = 1))}
-      ${this.field("Nazwa", f.name, (v) => this._set("name", v), { maxlength: LIMITS.name })}
+      ${this.field(t("name"), f.name, (v) => this._set("name", v), { maxlength: LIMITS.name })}
       <div class="row">
-        ${this.field("Data", f.date, (v) => this._set("date", v), { type: "date" })}
-        ${this.field("Przebieg", f.odometer, (v) => this._set("odometer", v), { inputmode: "numeric", suffix: "km" })}
+        ${this.field(t("date"), f.date, (v) => this._set("date", v), { type: "date" })}
+        ${this.field(t("odometer"), f.odometer, (v) => this._set("odometer", v), { inputmode: "numeric", suffix: "km" })}
       </div>
       <div class="row">
-        ${this.num("Części", f.parts, (v) => this._set("parts", v), "", "zł")}
-        ${this.num("Robocizna", f.labour, (v) => this._set("labour", v), "", "zł")}
+        ${this.num(t("parts"), f.parts, (v) => this._set("parts", v), "", "zł")}
+        ${this.num(t("labour"), f.labour, (v) => this._set("labour", v), "", "zł")}
       </div>
       ${this.expander(
         this._showTax,
-        "Podatek lub rabat",
+        t("tax_or_discount"),
         () => (this._showTax = true),
-        html`${this.num("Podatek", f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
+        html`${this.num(t("tax"), f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
           <div class="row">
-            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%", "Rabat (%)")}
-            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", "Rabat (zł)")}
+            ${this.num(t("discount"), f.discount_pct, (v) => this._set("discount_pct", v), "", "%", t("discount_pct"))}
+            ${this.num(t("discount"), f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", t("discount_amount"))}
           </div>`,
       )}
       ${this.field(
-        "Razem",
+        t("total"),
         this._totalTouched ? f.total : this._autoTotal(),
         (v) => {
           this._totalTouched = true;
@@ -136,17 +137,17 @@ export class VlEntryForm extends VlForm {
       )}
       ${this._totalTouched
         ? html`<button class="btn text" style="align-self:flex-start" @click=${() => (this._totalTouched = false)}>
-            Wylicz automatycznie
+            ${t("auto_total")}
           </button>`
         : nothing}
       ${this.expander(
         this._showNotes,
-        "Numery części i komentarz",
+        t("parts_and_comment"),
         () => (this._showNotes = true),
-        html`${this.field("Numery części", f.part_numbers, (v) => this._set("part_numbers", v), { maxlength: LIMITS.part_numbers })}
-          ${this.textArea("Komentarz", f.comment, LIMITS.comment, (v) => this._set("comment", v))}`,
+        html`${this.field(t("part_numbers"), f.part_numbers, (v) => this._set("part_numbers", v), { maxlength: LIMITS.part_numbers })}
+          ${this.textArea(t("comment"), f.comment, LIMITS.comment, (v) => this._set("comment", v))}`,
       )}
-      ${this.switchRow("Koszt akcesoriów", f.accessory, (v) => this._set("accessory", v))}
+      ${this.switchRow(t("accessory"), f.accessory, (v) => this._set("accessory", v))}
     </div>`;
   }
 }

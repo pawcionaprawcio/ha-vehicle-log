@@ -11,11 +11,10 @@ from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .calc import build_view
-from .const import DOMAIN
+from .const import DOMAIN, is_polish, panel_title
 from .store import VehicleLogStore
 
 EVENT_REMINDER_DUE = "vehicle_log_reminder_due"
-NOTIFICATION_TITLE = "Dziennik pojazdu"
 
 
 def _notification_id(key: str) -> str:
@@ -23,10 +22,10 @@ def _notification_id(key: str) -> str:
     return f"vehicle_log_odometer_{ident}" if kind == "odometer" else f"vehicle_log_{ident}"
 
 
-def _reminder_message(vehicle: str, r: dict) -> str:
+def _reminder_message(vehicle: str, r: dict, polish: bool) -> str:
     parts = []
     if r["due_date"]:
-        parts.append(f"termin {r['due_date']}")
+        parts.append(f"{'termin' if polish else 'due'} {r['due_date']}")
     if r["due_odometer"] is not None:
         parts.append(f"{r['due_odometer']} km")
     suffix = f" — {' / '.join(parts)}" if parts else ""
@@ -46,6 +45,7 @@ async def async_check_due(
         if (v.get("odometer_update") or {}).get("is_due"):
             due[f"odometer:{v['id']}"] = ("odometer", v, v["odometer_update"])
 
+    polish = is_polish(hass.config.language)
     notified = store.notified
     new = [k for k in due if k not in notified]
     # Only write when the set really changes, so store listeners do not loop.
@@ -58,7 +58,7 @@ async def async_check_due(
     for key in new:
         kind, v, item = due[key]
         if kind == "reminder":
-            message = _reminder_message((v.get("name") or "?"), item)
+            message = _reminder_message((v.get("name") or "?"), item, polish)
             data = {
                 "kind": "reminder", "vehicle_id": v["id"],
                 "vehicle_name": (v.get("name") or "?"), "reminder_id": item["id"],
@@ -67,17 +67,18 @@ async def async_check_due(
             }
             notification_id = f"vehicle_log_{item['id']}"
         else:
-            message = (
-                f"{(v.get('name') or '?')}: zaktualizuj przebieg "
-                f"(ostatni wpis {item['last_date']})"
+            action = (
+                "zaktualizuj przebieg (ostatni wpis"
+                if polish else "update the odometer (last reading"
             )
+            message = f"{(v.get('name') or '?')}: {action} {item['last_date']})"
             data = {
                 "kind": "odometer", "vehicle_id": v["id"],
                 "vehicle_name": (v.get("name") or "?"), "last_date": item["last_date"],
             }
             notification_id = f"vehicle_log_odometer_{v['id']}"
         persistent_notification.async_create(
-            hass, message, title=NOTIFICATION_TITLE,
+            hass, message, title=panel_title(hass.config.language),
             notification_id=notification_id,
         )
         hass.bus.async_fire(EVENT_REMINDER_DUE, data)

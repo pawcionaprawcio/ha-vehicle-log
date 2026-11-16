@@ -1,12 +1,14 @@
 import {
   LitElement, html, css, nothing, haStyles,
-  fmtDate, fmtKm, fmtMoney, fmtDec, fmtShortDate, monthLabel, reminderStatus, reminderLimitText, plural,
+  fmtDate, fmtKm, fmtMoney, fmtDec, fmtShortDate, monthLabel, reminderStatus, reminderLimitText,
 } from "./ui.js";
+import { t, fuelLabel } from "./i18n.js";
 
 export class VlEntries extends LitElement {
   static properties = {
     vehicle: { attribute: false },
     serviceTypes: { attribute: false },
+    lang: { attribute: false },
     wide: { type: Boolean, reflect: true },
   };
   static styles = [
@@ -62,7 +64,7 @@ export class VlEntries extends LitElement {
     const lastSeg = v.segments?.length ? v.segments[v.segments.length - 1] : null;
     const showForecast = v.forecast_odometer !== null && v.forecast_odometer !== undefined && v.forecast_odometer !== v.odometer;
     const stale = v.odometer_update?.is_due;
-    const meta = [(v.fuel_types || []).join(" + "), v.purchase_date ? `od ${fmtDate(v.purchase_date)}` : ""]
+    const meta = [(v.fuel_types || []).map(fuelLabel).join(" + "), v.purchase_date ? t("since", { date: fmtDate(v.purchase_date) }) : ""]
       .filter(Boolean)
       .join(" · ");
     const next = withNext && v.reminders?.length ? v.reminders[0] : null;
@@ -75,23 +77,23 @@ export class VlEntries extends LitElement {
         </div>
       </div>
       ${v.error
-        ? html`<div class="verr error">Nie udało się wczytać danych pojazdu</div>`
+        ? html`<div class="verr error">${t("vehicle_load_error")}</div>`
         : html`<div class="odo">
-              <div class="k">Przebieg</div>
+              <div class="k">${t("odometer")}</div>
               <div class="big">${v.odometer === null || v.odometer === undefined ? "—" : fmtKm(v.odometer)}</div>
-              ${showForecast ? html`<div class="est">szac. dziś ${fmtKm(v.forecast_odometer)}</div>` : nothing}
+              ${showForecast ? html`<div class="est">${t("forecast_today", { km: fmtKm(v.forecast_odometer) })}</div>` : nothing}
             </div>
-            ${stale ? html`<div class="stale">Brak odczytu od ${v.odometer_update.days_since} ${plural(v.odometer_update.days_since, "dzień", "dni", "dni")}</div>` : nothing}
+            ${stale ? html`<div class="stale">${t("no_reading_for", { n: v.odometer_update.days_since })}</div>` : nothing}
             <div class="tiles">
               <div class="tile">
-                <div class="k">Średnie spalanie</div>
+                <div class="k">${t("avg_consumption")}</div>
                 <div class="v">${c ? this._l100(c.avg_l_per_100km) : "—"}</div>
-                <div class="s">${c ? `${fmtMoney(c.avg_cost_per_100km)} / 100 km` : "od drugiego tankowania do pełna"}</div>
+                <div class="s">${c ? `${fmtMoney(c.avg_cost_per_100km)} / 100 km` : t("consumption_hint")}</div>
               </div>
               <div class="tile">
-                <div class="k">Ostatnie spalanie</div>
+                <div class="k">${t("last_consumption")}</div>
                 <div class="v">${c ? this._l100(c.last_l_per_100km) : "—"}</div>
-                ${c && lastSeg ? html`<div class="s">tankowanie ${fmtShortDate(lastSeg.to_date)}</div>` : nothing}
+                ${c && lastSeg ? html`<div class="s">${t("refuel_on", { date: fmtShortDate(lastSeg.to_date) })}</div>` : nothing}
               </div>
             </div>`}
       ${next ? this._nextRow(next) : nothing}
@@ -115,7 +117,7 @@ export class VlEntries extends LitElement {
     const items = (v.reminders || []).slice(0, 3);
     if (!items.length) return nothing;
     return html`<div class="card">
-      <div class="card-h"><span>Przypomnienia</span><button @click=${() => this._openReminder(null)}>Wszystkie</button></div>
+      <div class="card-h"><span>${t("tab_reminders")}</span><button @click=${() => this._openReminder(null)}>${t("all")}</button></div>
       ${items.map((r) => {
         const st = reminderStatus(r.progress);
         const sub = reminderLimitText(r);
@@ -137,11 +139,11 @@ export class VlEntries extends LitElement {
     if (e.error) {
       return html`<button class="li" @click=${() => this._open(e)}>
         <div class="badge b-err"><ha-icon icon="mdi:alert-circle-outline"></ha-icon></div>
-        <div class="m"><div class="t1">${e.name || type?.label || "Wpis"}</div><div class="t2">${["Błędny wpis", date].filter(Boolean).join(" · ")}</div></div>
+        <div class="m"><div class="t1">${e.name || type?.label || t("entry")}</div><div class="t2">${[t("bad_entry"), date].filter(Boolean).join(" · ")}</div></div>
       </button>`;
     }
     if (e.kind === "refuel") {
-      const title = ["Tankowanie", e.fuel_type, e.full_tank ? null : "(częściowe)"].filter(Boolean).join(" ");
+      const title = [t("refuel"), e.fuel_type ? fuelLabel(e.fuel_type) : null, e.full_tank ? null : t("partial")].filter(Boolean).join(" ");
       const sub = [
         date,
         e.litres === null || e.litres === undefined ? "" : `${fmtDec(e.litres, 0, 2)} l`,
@@ -160,7 +162,7 @@ export class VlEntries extends LitElement {
     if (e.kind === "odometer") {
       return html`<button class="li dim compact" @click=${() => this._open(e)}>
         <div class="badge b-odo"><ha-icon icon="mdi:counter"></ha-icon></div>
-        <div class="m"><div class="t1">Odczyt przebiegu</div><div class="t2">${date}</div></div>
+        <div class="m"><div class="t1">${t("odometer_reading")}</div><div class="t2">${date}</div></div>
         <div class="e"><div class="t1">${km}</div></div>
       </button>`;
     }
@@ -177,13 +179,13 @@ export class VlEntries extends LitElement {
   _history(v) {
     const groups = [];
     for (const e of v.entries || []) {
-      const label = e.date ? monthLabel(e.date) : "Bez daty";
+      const label = e.date ? monthLabel(e.date) : t("no_date");
       const last = groups[groups.length - 1];
       if (last && last.label === label) last.items.push(e);
       else groups.push({ label, items: [e] });
     }
     if (!groups.length) {
-      return html`<div class="card"><div class="empty">Brak wpisów. Użyj przycisku Dodaj, aby dodać pierwszy.</div></div>`;
+      return html`<div class="card"><div class="empty">${t("no_entries")}</div></div>`;
     }
     return html`<div class="groups">
       ${groups.map(

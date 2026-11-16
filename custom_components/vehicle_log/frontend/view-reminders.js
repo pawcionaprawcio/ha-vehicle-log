@@ -1,19 +1,20 @@
-import { LitElement, html, css, nothing, sheetStyles, fmtDate, fmtKm, todayIso, errorText, reminderStatus, plural } from "./ui.js";
+import { LitElement, html, css, nothing, sheetStyles, fmtDate, fmtKm, todayIso, errorText, reminderStatus } from "./ui.js";
+import { t } from "./i18n.js";
 
 const pct = (p) => (p === null || p === undefined ? "—" : `${Math.round(p)}%`);
 
-const daysUnit = (n) => plural(n, "dzień", "dni", "dni");
+
 
 /** Relative text of the days limit: "za 9 dni" / "3 dni po terminie". */
 function daysText(n) {
   const a = Math.abs(n);
-  if (n === 0) return "dziś";
-  return n < 0 ? `${a} ${daysUnit(a)} po terminie` : `za ${a} ${daysUnit(a)}`;
+  if (n === 0) return t("today");
+  return n < 0 ? t("days_late", { n: a }) : t("days_left", { n: a });
 }
 
 /** Relative text of the km limit: "za 9 800 km" / "1 200 km po terminie". */
 function kmText(n) {
-  return n < 0 ? `${fmtKm(-n)} po terminie` : `za ${fmtKm(n)}`;
+  return n < 0 ? t("km_late", { km: fmtKm(-n) }) : t("km_left", { km: fmtKm(n) });
 }
 
 /** The limit shown as the big line: the one with the higher progress. */
@@ -33,6 +34,7 @@ export class VlReminders extends LitElement {
     hass: { attribute: false },
     vehicle: { attribute: false },
     serviceTypes: { attribute: false },
+    lang: { attribute: false },
     narrow: { type: Boolean, reflect: true },
     wide: { type: Boolean, reflect: true },
     openId: {},
@@ -127,7 +129,7 @@ export class VlReminders extends LitElement {
 
   _card(r) {
     const type = this.serviceTypes?.[r.service_type];
-    const st = r.error ? { key: "err", label: "Błąd" } : reminderStatus(r.progress);
+    const st = r.error ? { key: "err", label: t("error") } : reminderStatus(r.progress);
     const { main, time, km } = mainLimit(r);
     return html`<button class="card rcard" @click=${() => this._show(r.id)}>
       <div class="top">
@@ -139,14 +141,14 @@ export class VlReminders extends LitElement {
         ${st.key && !r.error ? html`<span class="chip c-${st.key}">${st.label}</span>` : nothing}
       </div>
       ${r.error
-        ? html`<div class="error errtxt">Nie można policzyć terminu</div>`
+        ? html`<div class="error errtxt">${t("cannot_compute")}</div>`
         : main
           ? html`<div class="big"><b class=${main.late ? "late" : ""}>${main.rel}</b><span class="abs">${main.abs}</span></div>`
           : nothing}
       ${!r.error && time && km
         ? html`<div class="two">
-            <div><div class="lbl">Czas</div><div class="v ${time.late ? "late" : ""}">${time.rel} · ${time.abs}</div></div>
-            <div><div class="lbl">Przebieg</div><div class="v ${km.late ? "late" : ""}">${km.rel} · ${km.abs}</div></div>
+            <div><div class="lbl">${t("time_limit")}</div><div class="v ${time.late ? "late" : ""}">${time.rel} · ${time.abs}</div></div>
+            <div><div class="lbl">${t("odometer")}</div><div class="v ${km.late ? "late" : ""}">${km.rel} · ${km.abs}</div></div>
           </div>`
         : nothing}
       ${r.progress === null || r.progress === undefined
@@ -164,16 +166,16 @@ export class VlReminders extends LitElement {
     return html`<div class="overlay" @click=${close}>
       <div class="sheet" role="dialog" aria-label=${r.text} @click=${(e) => e.stopPropagation()}>
         <header>
-          <button class="ib" aria-label="Zamknij" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
+          <button class="ib" aria-label=${t("close")} @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
           <h2>${r.text}</h2>
         </header>
         <div class="body">
           ${r.extra_text ? html`<div class="sub">${r.extra_text}</div>` : nothing}
-          ${r.error ? html`<div class="error">Nie można policzyć terminu</div>` : nothing}
+          ${r.error ? html`<div class="error">${t("cannot_compute")}</div>` : nothing}
           <div class="stats">
-            <div><b>${pct(r.progress_time)}</b><span>czas</span></div>
-            <div><b>${pct(r.progress_km)}</b><span>przebieg</span></div>
-            <div><b>${pct(r.progress_forecast)}</b><span>prognoza</span></div>
+            <div><b>${pct(r.progress_time)}</b><span>${t("stat_time")}</span></div>
+            <div><b>${pct(r.progress_km)}</b><span>${t("stat_km")}</span></div>
+            <div><b>${pct(r.progress_forecast)}</b><span>${t("stat_forecast")}</span></div>
           </div>
           <div class="lines">
             ${lines.map((l) => html`<div class="${l.late ? "late" : ""}">${l.rel} · ${l.abs}</div>`)}
@@ -182,15 +184,15 @@ export class VlReminders extends LitElement {
         <footer>
           ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
           ${this._confirmDelete
-            ? html`<div class="conf">Na pewno usunąć to przypomnienie?</div>
+            ? html`<div class="conf">${t("delete_reminder")}</div>
                 <div class="foot-btns">
-                  <button class="btn text" @click=${() => (this._confirmDelete = false)}>Anuluj</button>
-                  <button class="btn fill danger" ?disabled=${this._busy} @click=${() => this._call({ type: "vehicle_log/reminder/delete", reminder_id: r.id })}>Usuń</button>
+                  <button class="btn text" @click=${() => (this._confirmDelete = false)}>${t("cancel")}</button>
+                  <button class="btn fill danger" ?disabled=${this._busy} @click=${() => this._call({ type: "vehicle_log/reminder/delete", reminder_id: r.id })}>${t("delete")}</button>
                 </div>`
-            : html`<button class="btn fill wide" ?disabled=${this._busy} @click=${() => this._done(r)}>Wykonane</button>
+            : html`<button class="btn fill wide" ?disabled=${this._busy} @click=${() => this._done(r)}>${t("done")}</button>
                 <div class="foot-btns">
-                  <button class="btn text" @click=${() => { close(); this._emit("edit-reminder", r); }}>Edytuj</button>
-                  <button class="btn text danger" @click=${() => (this._confirmDelete = true)}>Usuń</button>
+                  <button class="btn text" @click=${() => { close(); this._emit("edit-reminder", r); }}>${t("edit")}</button>
+                  <button class="btn text danger" @click=${() => (this._confirmDelete = true)}>${t("delete")}</button>
                 </div>`}
         </footer>
       </div>
@@ -206,13 +208,13 @@ export class VlReminders extends LitElement {
         ${od?.is_due
           ? html`<div class="alert" role="status">
               <ha-icon icon="mdi:alert-outline"></ha-icon>
-              <span class="t">Brak odczytu przebiegu od ${od.days_since} ${daysUnit(od.days_since)}</span>
-              <button class="btn text" @click=${() => this._emit("add-odometer")}>Aktualizuj</button>
+              <span class="t">${t("no_odometer_for", { n: od.days_since })}</span>
+              <button class="btn text" @click=${() => this._emit("add-odometer")}>${t("update")}</button>
             </div>`
           : nothing}
         ${v.reminders.length
           ? v.reminders.map((r) => this._card(r))
-          : html`<div class="empty">Brak przypomnień. Użyj przycisku Przypomnienie, aby dodać pierwsze.</div>`}
+          : html`<div class="empty">${t("no_reminders")}</div>`}
       </div>
       ${open ? this._detail(open) : nothing}`;
   }
