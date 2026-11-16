@@ -187,7 +187,7 @@ export function reminderLimitText(r) {
   if (r.days_left !== null && r.days_left !== undefined) {
     const n = Math.abs(r.days_left);
     const unit = n === 1 ? "dzień" : "dni";
-    parts.push(r.days_left < 0 ? `${n} ${unit} po terminie` : `za ${n} ${unit}`);
+    parts.push(r.days_left < 0 ? `${n} ${unit} po terminie` : n === 0 ? "dziś" : `za ${n} ${unit}`);
   }
   if (r.km_left !== null && r.km_left !== undefined) {
     parts.push(r.km_left < 0 ? `${fmtKm(-r.km_left)} po terminie` : `za ${fmtKm(r.km_left)}`);
@@ -496,7 +496,7 @@ export class VlForm extends LitElement {
   }
 
   field(label, value, onInput, opts = {}) {
-    const { type = "text", maxlength, inputmode, placeholder = "", disabled = false, suffix = "" } = opts;
+    const { type = "text", maxlength, inputmode, placeholder = "", disabled = false, suffix = "", ariaLabel = "" } = opts;
     return html`<label class="f ${disabled ? "disabled" : ""}"
       ><span class="fl">${label}</span>
       <input
@@ -505,14 +505,15 @@ export class VlForm extends LitElement {
         maxlength=${maxlength ?? nothing}
         inputmode=${inputmode ?? nothing}
         placeholder=${placeholder}
+        aria-label=${ariaLabel || nothing}
         ?disabled=${disabled}
         @input=${(e) => onInput(e.target.value)}
       />${suffix ? html`<span class="suf">${suffix}</span>` : nothing}</label
     >`;
   }
 
-  num(label, value, onInput, placeholder = "", suffix = "") {
-    return this.field(label, value, onInput, { inputmode: "decimal", placeholder, suffix });
+  num(label, value, onInput, placeholder = "", suffix = "", ariaLabel = "") {
+    return this.field(label, value, onInput, { inputmode: "decimal", placeholder, suffix, ariaLabel });
   }
 
   textArea(label, value, max, onInput) {

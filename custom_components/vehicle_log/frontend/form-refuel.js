@@ -20,6 +20,7 @@ export class VlRefuelForm extends VlForm {
         display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; background: transparent;
         --mdc-icon-size: 18px;
       }
+      .seg button:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: -2px; }
       .seg button + button { border-left: 1px solid var(--divider-color, rgba(127, 127, 127, 0.5)); }
       .seg button[aria-checked="true"] {
         background: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
@@ -145,14 +146,25 @@ export class VlRefuelForm extends VlForm {
     return this.num(label, this._f[key], (v) => this._set(key, v), computed, suffix);
   }
 
+  _segKey(e, types) {
+    const d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const i = Math.max(0, types.indexOf(this._f.fuel));
+    const next = types[(i + d + types.length) % types.length];
+    this._set("fuel", next);
+    this.updateComplete.then(() => this.renderRoot.querySelector('.seg button[aria-checked="true"]')?.focus());
+  }
+
   _renderFuel() {
     const f = this._f;
     const types = this._fuelOptions();
     if (this._ownFuels.length) {
-      return html`<div class="seg" role="radiogroup" aria-label="Rodzaj paliwa">
-        ${types.map((t) => {
+      return html`<div class="seg" role="radiogroup" aria-label="Rodzaj paliwa" @keydown=${(e) => this._segKey(e, types)}>
+        ${types.map((t, i) => {
           const on = f.fuel === t;
-          return html`<button role="radio" aria-checked=${on ? "true" : "false"} @click=${() => this._set("fuel", t)}>
+          const tab = on || (!types.includes(f.fuel) && i === 0);
+          return html`<button role="radio" tabindex=${tab ? 0 : -1} aria-checked=${on ? "true" : "false"} @click=${() => this._set("fuel", t)}>
             ${on ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}${t}
           </button>`;
         })}
@@ -194,8 +206,8 @@ export class VlRefuelForm extends VlForm {
         () => (this._showTax = true),
         html`${this.num("Podatek", f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
           <div class="row">
-            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%")}
-            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł")}
+            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%", "Rabat (%)")}
+            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", "Rabat (zł)")}
           </div>`,
       )}
       ${this.expander(

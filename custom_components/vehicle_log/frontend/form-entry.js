@@ -37,7 +37,7 @@ export class VlEntryForm extends VlForm {
     const auto = entryTotal(e.parts, e.labour, e.tax_pct, e.discount_pct, e.discount_amount);
     this._totalTouched = this.editing && e.total !== null && e.total !== undefined && e.total !== auto;
     this._showTax = Boolean(e.tax_pct || e.discount_pct || e.discount_amount);
-    this._showNotes = false;
+    this._showNotes = Boolean(e.part_numbers || e.comment);
   }
 
   get heading() {
@@ -121,8 +121,8 @@ export class VlEntryForm extends VlForm {
         () => (this._showTax = true),
         html`${this.num("Podatek", f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
           <div class="row">
-            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%")}
-            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł")}
+            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%", "Rabat (%)")}
+            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", "Rabat (zł)")}
           </div>`,
       )}
       ${this.field(
@@ -140,7 +140,7 @@ export class VlEntryForm extends VlForm {
           </button>`
         : nothing}
       ${this.expander(
-        this._showNotes || Boolean(f.part_numbers || f.comment),
+        this._showNotes,
         "Numery części i komentarz",
         () => (this._showNotes = true),
         html`${this.field("Numery części", f.part_numbers, (v) => this._set("part_numbers", v), { maxlength: LIMITS.part_numbers })}

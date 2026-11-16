@@ -7,6 +7,7 @@ const daysUnit = (n) => plural(n, "dzień", "dni", "dni");
 /** Relative text of the days limit: "za 9 dni" / "3 dni po terminie". */
 function daysText(n) {
   const a = Math.abs(n);
+  if (n === 0) return "dziś";
   return n < 0 ? `${a} ${daysUnit(a)} po terminie` : `za ${a} ${daysUnit(a)}`;
 }
 
@@ -21,7 +22,7 @@ function mainLimit(r) {
     ? { rel: daysText(r.days_left), abs: fmtDate(r.due_date), late: r.days_left < 0, p: r.progress_time ?? -1 }
     : null;
   const km = r.km_left !== null && r.km_left !== undefined && r.due_odometer !== null && r.due_odometer !== undefined
-    ? { rel: kmText(r.km_left), abs: fmtKm(r.due_odometer), late: r.km_left < 0, p: r.progress_km ?? -1 }
+    ? { rel: kmText(r.km_left), abs: fmtKm(r.due_odometer), late: r.km_left < 0, p: Math.max(r.progress_km ?? -1, r.progress_forecast ?? -1) }
     : null;
   if (time && km) return km.p > time.p ? { main: km, time, km } : { main: time, time, km };
   return { main: time || km, time, km };

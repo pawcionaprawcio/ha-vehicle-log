@@ -137,7 +137,7 @@ export class VlEntries extends LitElement {
     if (e.error) {
       return html`<button class="li" @click=${() => this._open(e)}>
         <div class="badge b-err"><ha-icon icon="mdi:alert-circle-outline"></ha-icon></div>
-        <div class="m"><div class="t1">${e.name || type?.label || "Wpis"}</div><div class="t2">Błędny wpis</div></div>
+        <div class="m"><div class="t1">${e.name || type?.label || "Wpis"}</div><div class="t2">${["Błędny wpis", date].filter(Boolean).join(" · ")}</div></div>
       </button>`;
     }
     if (e.kind === "refuel") {
