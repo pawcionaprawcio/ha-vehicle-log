@@ -2,6 +2,7 @@
 import base64
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.vehicle_log.const import DOMAIN
 from tests.conftest import save_vehicle, ws_call, ws_raw
@@ -12,6 +13,19 @@ from tests.xlsx_factory import make_xlsx
 async def test_panel_registered(hass, setup_entry):
     assert "vehicle-log" in hass.data["frontend_panels"]
     assert hass.data[DOMAIN]["store"] is not None
+
+
+@pytest.mark.parametrize(
+    ("language", "title"),
+    [("pl", "Dziennik pojazdu"), ("pl-PL", "Dziennik pojazdu"), ("en", "Vehicle Log"), ("de", "Vehicle Log")],
+)
+async def test_sidebar_title_follows_language(hass, language, title):
+    hass.config.language = language
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=DOMAIN, title="Vehicle Log")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.data["frontend_panels"]["vehicle-log"].sidebar_title == title
 
 
 async def test_config_flow_single_instance(hass):

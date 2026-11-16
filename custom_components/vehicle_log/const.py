@@ -4,6 +4,15 @@ from __future__ import annotations
 
 DOMAIN = "vehicle_log"
 
+
+def is_polish(language: str | None) -> bool:
+    """True for a Polish HA language ("pl", "pl-PL"); everything else gets English."""
+    return str(language or "").lower().split("-")[0] == "pl"
+
+
+def panel_title(language: str | None) -> str:
+    return "Dziennik pojazdu" if is_polish(language) else "Vehicle Log"
+
 # Order = picker order.
 SERVICE_TYPES: dict[str, dict] = {
     "periodic_service": {"label": "Serwis okresowy", "icon": "mdi:calendar-check"},
@@ -60,4 +69,4 @@ DEFAULT_SETTINGS: dict = {
     "odometer_reminder_days": 120,
 }
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"

@@ -35,13 +35,15 @@ A **Vehicle Log** entry appears in the sidebar. The panel has three tabs: entrie
 
 The panel follows the look of Home Assistant's own Settings pages and adapts to the active theme (light, dark or a custom one):
 
-- A top bar with a vehicle picker, the tabs **Wpisy**, **Przypomnienia** and **Garaż** (a bottom bar on phones), and a menu button.
-- **Wpisy**: a summary card with odometer and consumption, then entries grouped by month as list rows with round icon badges. Add service entries, refuels and odometer readings from the floating action button.
-- **Przypomnienia**: cards with a coloured status chip (on time, soon, overdue), the nearest limit in large text and a progress bar. Tap a card for details.
-- **Garaż**: vehicles, settings switches and the import.
+- A top bar with a vehicle picker, the tabs **Entries**, **Reminders** and **Garage** (a bottom bar on phones), and a menu button.
+- **Entries**: a summary card with odometer and consumption, then entries grouped by month as list rows with round icon badges. Add service entries, refuels and odometer readings from the floating action button.
+- **Reminders**: cards with a coloured status chip (on time, soon, overdue), the nearest limit in large text and a progress bar. Tap a card for details.
+- **Garage**: vehicles, settings switches and the import.
 - Forms open as full-screen sheets on a phone, so refuels can be entered at the pump from the Companion app.
 
-The interface is in Polish.
+### Language
+
+The panel is in English or Polish. It follows the language set in your Home Assistant user profile: Polish when that is Polish, English for every other language. The sidebar title and the notifications follow the server language (**Settings > System > General**) the same way. Service type names are translated too, but the names and texts you save (entries, reminders) are kept as entered. Amounts are shown in złoty.
 
 ## Importing from Car Notes
 

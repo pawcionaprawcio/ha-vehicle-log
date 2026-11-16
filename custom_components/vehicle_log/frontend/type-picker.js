@@ -1,4 +1,5 @@
 import { LitElement, html, css, nothing, haStyles } from "./ui.js";
+import { t as tr, lang } from "./i18n.js";
 
 const HIDDEN_TYPES = ["refuel", "odometer_update"];
 
@@ -7,10 +8,10 @@ export function typeRow(type, onClick) {
   return html`<button class="li type-row" style="border:1px solid var(--divider-color); border-radius: 12px" @click=${onClick}>
     <div class="badge b-service"><ha-icon icon=${type?.icon || "mdi:wrench"}></ha-icon></div>
     <div class="m">
-      <div class="t2">Rodzaj</div>
-      <div class="t1">${type?.label || "Wybierz rodzaj"}</div>
+      <div class="t2">${tr("type")}</div>
+      <div class="t1">${type?.label || tr("choose_type")}</div>
     </div>
-    <span style="color: var(--primary-color, #03a9f4); font-size: 14px; font-weight: 500">Zmień</span>
+    <span style="color: var(--primary-color, #03a9f4); font-size: 14px; font-weight: 500">${tr("change")}</span>
   </button>`;
 }
 
@@ -52,16 +53,16 @@ export class VlTypePicker extends LitElement {
   }
 
   render() {
-    const q = this._search.trim().toLocaleLowerCase("pl");
+    const q = this._search.trim().toLocaleLowerCase(lang());
     const types = Object.entries(this.serviceTypes || {}).filter(
-      ([id, t]) => !HIDDEN_TYPES.includes(id) && t.label.toLocaleLowerCase("pl").includes(q),
+      ([id, t]) => !HIDDEN_TYPES.includes(id) && t.label.toLocaleLowerCase(lang()).includes(q),
     );
     return html`<label class="f"
         ><ha-icon icon="mdi:magnify"></ha-icon
         ><input
           type="search"
-          placeholder="Szukaj rodzaju serwisu"
-          aria-label="Szukaj"
+          placeholder=${tr("search_type")}
+          aria-label=${tr("search")}
           .value=${this._search}
           @input=${(e) => (this._search = e.target.value)}
       /></label>
@@ -72,7 +73,7 @@ export class VlTypePicker extends LitElement {
             <div class="m"><div class="t1">${t.label}</div></div>
           </button>`,
         )}
-        ${types.length ? nothing : html`<div class="hint">Brak wyników.</div>`}
+        ${types.length ? nothing : html`<div class="hint">${tr("no_results")}</div>`}
       </div>`;
   }
 }

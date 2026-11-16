@@ -11,7 +11,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, VERSION
+from .const import DOMAIN, VERSION, panel_title
 from .due_check import async_check_due, async_start_due_checks
 from .entity import VehicleLogCoordinator
 from .store import VehicleLogStore
@@ -54,7 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         webcomponent_name="vehicle-log-panel",
         frontend_url_path=PANEL_URL_PATH,
         module_url=f"{STATIC_URL}/vehicle-log-panel.js",
-        sidebar_title="Dziennik pojazdu",
+        sidebar_title=panel_title(hass.config.language),
         sidebar_icon="mdi:car-wrench",
         require_admin=False,
         config={},

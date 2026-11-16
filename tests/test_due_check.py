@@ -33,6 +33,7 @@ async def _reminder(ws, vid, baseline, text="Wymiana oleju", months=12, km=None,
 
 
 async def test_due_reminder_notifies_once(hass, freezer, ws):
+    hass.config.language = "pl"
     freezer.move_to(f"{TODAY} 10:00:00")
     events = async_capture_events(hass, EVENT)
     vid = await save_vehicle(ws, "Octavia")
@@ -59,6 +60,7 @@ async def test_due_reminder_notifies_once(hass, freezer, ws):
 
 
 async def test_message_omits_missing_parts(hass, freezer, ws):
+    hass.config.language = "pl"
     freezer.move_to(f"{TODAY} 10:00:00")
     vid = await save_vehicle(ws, "Octavia")
     only_date = await _reminder(ws, vid, "2025-01-01", text="A")
@@ -113,6 +115,7 @@ async def test_reset_reminder_allows_next_notification(hass, freezer, ws):
 
 
 async def test_odometer_overdue_event_kind(hass, freezer, ws):
+    hass.config.language = "pl"
     freezer.move_to(f"{TODAY} 10:00:00")
     events = async_capture_events(hass, EVENT)
     vid = await save_vehicle(ws, "Octavia")
@@ -262,3 +265,25 @@ async def test_due_check_survives_a_failing_vehicle(hass, freezer, ws, monkeypat
     assert [e.data["reminder_id"] for e in events] == [rid]
     store = hass.data[DOMAIN]["store"]
     await async_check_due(hass, store, dt_util.now().date())
+
+
+async def test_messages_are_english_outside_polish(hass, freezer, ws):
+    hass.config.language = "en"
+    freezer.move_to(f"{TODAY} 10:00:00")
+    vid = await save_vehicle(ws, "Octavia")
+    rid = await _reminder(ws, vid, "2025-01-01", text="Oil", km=10000, odo=60000)
+    await hass.async_block_till_done()
+    note = _notifications(hass)[f"vehicle_log_{rid}"]
+    assert note["title"] == "Vehicle Log"
+    assert note["message"] == "Octavia: Oil — due 2026-01-01 / 70000 km"
+
+    vid2 = await save_vehicle(ws, "Fabia")
+    await ws_call(
+        ws, "vehicle_log/entry/save",
+        entry={"vehicle_id": vid2, "kind": "odometer", "date": "2026-06-01",
+               "odometer": 60000},
+    )
+    await hass.async_block_till_done()
+    assert _notifications(hass)[f"vehicle_log_odometer_{vid2}"]["message"] == (
+        "Fabia: update the odometer (last reading 2026-06-01)"
+    )

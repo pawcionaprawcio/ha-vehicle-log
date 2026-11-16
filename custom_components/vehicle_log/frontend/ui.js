@@ -1,5 +1,8 @@
 // Shared helpers, styles and the form base class for the Vehicle Log panel.
 import { LitElement, html, css, nothing } from "./lit-core.min.js";
+import { t, lang, monthName, plural } from "./i18n.js";
+
+export { plural };
 
 export const LIMITS = { name: 70, part_numbers: 300, comment: 1000 };
 
@@ -26,11 +29,11 @@ export const ODOMETER_MAX = 10_000_000;
  * Polish message when an odometer/interval field is not a whole non-negative
  * number (digits and whitespace only), else "". Empty is fine.
  */
-export function intError(str, label = "Przebieg") {
+export function intError(str, label = t("odometer")) {
   const text = String(str ?? "").trim();
   if (!text) return "";
-  if (!/^[\d\s]+$/.test(text)) return `${label}: tylko cyfry, bez przecinka i znaków.`;
-  if (parseNum(text) > ODOMETER_MAX) return `${label}: wartość jest zbyt duża.`;
+  if (!/^[\d\s]+$/.test(text)) return t("int_only_digits", { label });
+  if (parseNum(text) > ODOMETER_MAX) return t("int_too_big", { label });
   return "";
 }
 
@@ -43,21 +46,14 @@ export function newId() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Polish plural: 1 -> one, 2-4 (not 12-14) -> few, otherwise many. */
-export function plural(n, one, few, many) {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (n === 1) return one;
-  return m10 >= 2 && m10 <= 4 && !(m100 >= 12 && m100 <= 14) ? few : many;
-}
-
 export function fmtDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
-  return m ? `${Number(m[3])}.${m[2]}.${m[1]}` : iso || "";
+  if (!m) return iso || "";
+  return lang() === "pl" ? `${Number(m[3])}.${m[2]}.${m[1]}` : `${Number(m[3])} ${monthName(Number(m[2]) - 1)} ${m[1]}`;
 }
 
 function group(n) {
-  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, lang() === "pl" ? NBSP : ",");
 }
 
 /** Number with NBSP-grouped thousands, no unit ("" when unset). */
@@ -74,14 +70,18 @@ export function fmtMoney(n) {
   const whole = Math.abs(n - Math.round(n)) < 0.005;
   const text = whole
     ? group(n)
-    : n.toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+    : n.toLocaleString(numLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
   return `${text}${NBSP}zł`;
 }
 
 /** Decimal with comma, between min and max fraction digits, no grouping. */
+function numLocale() {
+  return lang() === "pl" ? "pl-PL" : "en-GB";
+}
+
 export function fmtDec(n, min = 0, max = 2) {
   if (n === null || n === undefined) return "";
-  return n.toLocaleString("pl-PL", {
+  return n.toLocaleString(numLocale(), {
     minimumFractionDigits: min,
     maximumFractionDigits: max,
     useGrouping: false,
@@ -90,7 +90,7 @@ export function fmtDec(n, min = 0, max = 2) {
 
 /** Number -> text for an input field ("" when unset). */
 export function toField(n) {
-  return n === null || n === undefined ? "" : String(n).replace(".", ",");
+  return n === null || n === undefined ? "" : String(n).replace(".", lang() === "pl" ? "," : ".");
 }
 
 /** Mirror of calc.entry_total. */
@@ -152,33 +152,29 @@ export const storage = {
 
 export function errorText(err) {
   if (err && typeof err === "object" && err.message) return String(err.message);
-  return String(err || "Nieznany błąd");
+  return String(err || t("unknown_error"));
 }
-
-const MONTHS_SHORT = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
-const MONTHS_LONG = [
-  "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
-  "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień",
-];
 
 /** "2026-11-14" -> "14 lis" ("" when not a date). */
 export function fmtShortDate(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
-  return m && MONTHS_SHORT[Number(m[2]) - 1] ? `${Number(m[3])} ${MONTHS_SHORT[Number(m[2]) - 1]}` : iso || "";
+  const name = m && monthName(Number(m[2]) - 1, "short");
+  return name ? `${Number(m[3])} ${name}` : iso || "";
 }
 
 /** "2026-11-14" -> "Listopad 2026". */
 export function monthLabel(iso) {
   const m = /^(\d{4})-(\d{2})/.exec(iso || "");
-  return m && MONTHS_LONG[Number(m[2]) - 1] ? `${MONTHS_LONG[Number(m[2]) - 1]} ${m[1]}` : iso || "";
+  const name = m && monthName(Number(m[2]) - 1, "long");
+  return name ? `${name} ${m[1]}` : iso || "";
 }
 
 /** Reminder progress (percent or null) -> chip/bar status. */
 export function reminderStatus(progress) {
   if (progress === null || progress === undefined) return { key: null, label: "" };
-  if (progress >= 100) return { key: "err", label: "Po terminie" };
-  if (progress >= 80) return { key: "warn", label: "Wkrótce" };
-  return { key: "ok", label: "OK" };
+  if (progress >= 100) return { key: "err", label: t("st_overdue") };
+  if (progress >= 80) return { key: "warn", label: t("st_soon") };
+  return { key: "ok", label: t("st_ok") };
 }
 
 /** Nearest-limit text of a reminder: "za 9 dni lub za 9 800 km", "" when no limit. */
@@ -186,13 +182,12 @@ export function reminderLimitText(r) {
   const parts = [];
   if (r.days_left !== null && r.days_left !== undefined) {
     const n = Math.abs(r.days_left);
-    const unit = n === 1 ? "dzień" : "dni";
-    parts.push(r.days_left < 0 ? `${n} ${unit} po terminie` : n === 0 ? "dziś" : `za ${n} ${unit}`);
+    parts.push(r.days_left < 0 ? t("days_late", { n }) : n === 0 ? t("today") : t("days_left", { n }));
   }
   if (r.km_left !== null && r.km_left !== undefined) {
-    parts.push(r.km_left < 0 ? `${fmtKm(-r.km_left)} po terminie` : `za ${fmtKm(r.km_left)}`);
+    parts.push(r.km_left < 0 ? t("km_late", { km: fmtKm(-r.km_left) }) : t("km_left", { km: fmtKm(r.km_left) }));
   }
-  return parts.join(" lub ");
+  return parts.join(t("or"));
 }
 
 /** Shared HA-Settings-like building blocks (cards, list rows, badges, chips, buttons). */
@@ -442,7 +437,7 @@ export class VlForm extends LitElement {
   }
 
   get deleteWarning() {
-    return "Na pewno usunąć ten wpis?";
+    return t("delete_entry");
   }
 
   renderExtraHeader() {
@@ -546,7 +541,7 @@ export class VlForm extends LitElement {
     return html`<div class="overlay">
       <div class="sheet" role="dialog" aria-label=${this.heading}>
         <header>
-          <button class="ib" aria-label="Zamknij" @click=${() => this.close()}>
+          <button class="ib" aria-label=${t("close")} @click=${() => this.close()}>
             <ha-icon icon="mdi:close"></ha-icon>
           </button>
           <h2>${this.heading}</h2>
@@ -564,17 +559,17 @@ export class VlForm extends LitElement {
       ${this._confirmDelete
         ? html`<div>${this.deleteWarning}</div>
             <div class="foot-row">
-              <button class="btn fill danger" ?disabled=${this._busy} @click=${() => this._delete()}>Usuń</button>
+              <button class="btn fill danger" ?disabled=${this._busy} @click=${() => this._delete()}>${t("delete")}</button>
               <span class="spacer"></span>
-              <button class="btn text" @click=${() => (this._confirmDelete = false)}>Anuluj</button>
+              <button class="btn text" @click=${() => (this._confirmDelete = false)}>${t("cancel")}</button>
             </div>`
         : html`<div class="foot-row">
             <button class="btn fill" ?disabled=${this._busy} @click=${() => this.save()}>
-              ${this._busy ? "Zapisywanie…" : "Zapisz"}
+              ${this._busy ? t("saving") : t("save")}
             </button>
             <span class="spacer"></span>
             ${this.editing
-              ? html`<button class="btn text danger" @click=${() => (this._confirmDelete = true)}>Usuń</button>`
+              ? html`<button class="btn text danger" @click=${() => (this._confirmDelete = true)}>${t("delete")}</button>`
               : nothing}
           </div>`}
     </footer>`;
