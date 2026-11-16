@@ -1,6 +1,6 @@
 import {
   LitElement, html, css, nothing, haStyles,
-  fmtDate, fmtKm, fmtMoney, fmtDec, fmtShortDate, monthLabel, reminderStatus, reminderLimitText,
+  fmtDate, fmtKm, fmtMoney, fmtDec, fmtShortDate, monthLabel, reminderStatus, reminderLimitText, plural,
 } from "./ui.js";
 
 export class VlEntries extends LitElement {
@@ -81,7 +81,7 @@ export class VlEntries extends LitElement {
               <div class="big">${v.odometer === null || v.odometer === undefined ? "—" : fmtKm(v.odometer)}</div>
               ${showForecast ? html`<div class="est">szac. dziś ${fmtKm(v.forecast_odometer)}</div>` : nothing}
             </div>
-            ${stale ? html`<div class="stale">Brak odczytu od ${v.odometer_update.days_since} dni</div>` : nothing}
+            ${stale ? html`<div class="stale">Brak odczytu od ${v.odometer_update.days_since} ${plural(v.odometer_update.days_since, "dzień", "dni", "dni")}</div>` : nothing}
             <div class="tiles">
               <div class="tile">
                 <div class="k">Średnie spalanie</div>

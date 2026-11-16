@@ -56,7 +56,8 @@ export class VlVehicleForm extends VlForm {
       ${this.field("Nazwa", this._name, (v) => (this._name = v), { maxlength: LIMITS.name, placeholder: "np. Auto rodzinne" })}
       ${this.field("Data zakupu", this._purchase, (v) => (this._purchase = v), { type: "date" })}
       <div class="fuels">
-        <div class="hint">Jeden lub dwa rodzaje, np. Pb95 + LPG</div>
+        <div class="fuels-title">Rodzaj paliwa</div>
+        <div class="hint">Jeden lub dwa, np. Pb95 + LPG</div>
         ${(this.view?.fuel_types || []).map((t) => {
           const on = this._fuels.includes(t);
           return this.switchRow(t, on, (checked) => this._toggleFuel(t, checked), "", !on && this._fuels.length >= MAX_FUELS);

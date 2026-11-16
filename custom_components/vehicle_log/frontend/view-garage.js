@@ -162,7 +162,7 @@ export class VlGarage extends LitElement {
             <div class="t1">Szacuj przebieg</div>
             <div class="hint">Na podstawie dotychczasowej jazdy</div>
           </div>
-          <input type="checkbox" class="switch" .checked=${s.forecast_enabled} ?disabled=${this._busy}
+          <input type="checkbox" class="switch" role="switch" .checked=${s.forecast_enabled} ?disabled=${this._busy}
             @change=${(e) => this._setting({ forecast_enabled: e.target.checked })} />
         </label>
         <label class="li">
@@ -170,7 +170,7 @@ export class VlGarage extends LitElement {
             <div class="t1">Przypominaj o przebiegu</div>
             <div class="hint">Gdy brak odczytu przez podaną liczbę dni</div>
           </div>
-          <input type="checkbox" class="switch" .checked=${s.odometer_reminder_enabled} ?disabled=${this._busy}
+          <input type="checkbox" class="switch" role="switch" .checked=${s.odometer_reminder_enabled} ?disabled=${this._busy}
             @change=${(e) => this._setting({ odometer_reminder_enabled: e.target.checked })} />
         </label>
         ${s.odometer_reminder_enabled

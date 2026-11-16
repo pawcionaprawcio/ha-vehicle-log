@@ -117,7 +117,7 @@ export class VlRefuelForm extends VlForm {
     }
     const drop = this._derivedKey();
     if (AMOUNTS.filter((k) => parseNum(f[k]) !== null).length < 2 && !drop) {
-      throw new Error("Podaj dwie z trzech wartości: koszt, cena za litr, litry.");
+      throw new Error("Podaj dwie z trzech wartości: kwota, cena za litr, litry.");
     }
     if (!f.date) throw new Error("Podaj datę.");
     const fuel = f.fuel === OTHER ? f.fuel_other.trim() : f.fuel;

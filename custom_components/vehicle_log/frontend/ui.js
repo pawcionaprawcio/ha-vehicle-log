@@ -311,7 +311,7 @@ export const haStyles = css`
   .hint { font-size: 12px; color: var(--secondary-text-color, #727272); }
 `;
 
-/** Dialog shell, outlined fields and legacy form controls used by the entry forms. */
+/** Dialog shell, outlined fields and base form controls used by the entry forms. */
 export const sheetStyles = css`
   ${haStyles}
   :host {
@@ -362,18 +362,12 @@ export const sheetStyles = css`
   }
   textarea { min-height: 80px; resize: vertical; }
   input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary-color); border-color: transparent; }
-  input[type="checkbox"] { width: 24px; min-height: 24px; height: 24px; accent-color: var(--primary-color); }
   input.switch { width: 36px; height: 20px; min-height: 0; }
   input::placeholder { color: var(--disabled-text-color, #999); font-style: italic; }
-  .check { flex-direction: row; align-items: center; gap: 12px; min-height: 48px; font-size: 16px; color: var(--primary-text-color); }
   button {
     font: inherit; min-height: 48px; min-width: 48px; padding: 0 16px; border-radius: 8px; cursor: pointer;
     border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color);
   }
-  button.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; font-weight: 500; }
-  button.danger { color: var(--error-color, #db4437); border-color: var(--error-color, #db4437); }
-  button.danger.solid { background: var(--error-color, #db4437); color: #fff; }
-  button.link { border: none; color: var(--primary-color); justify-content: flex-start; text-align: left; padding: 0; }
   button:disabled { opacity: 0.5; cursor: default; }
   .count { text-align: right; font-size: 12px; color: var(--secondary-text-color); }
   /* outlined field with the label floating on the border */
@@ -400,6 +394,7 @@ export const sheetStyles = css`
   label.f .suf { color: var(--secondary-text-color, #727272); flex: none; }
   .ta-wrap { display: flex; flex-direction: column; gap: 4px; }
   /* switch row */
+  .fuels-title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); }
   label.swrow {
     flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; min-height: 48px;
     font-size: 16px; color: var(--primary-text-color); cursor: pointer;

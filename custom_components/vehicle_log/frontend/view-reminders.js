@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing, haStyles, sheetStyles, fmtDate, fmtKm, todayIso, errorText, reminderStatus, plural } from "./ui.js";
+import { LitElement, html, css, nothing, sheetStyles, fmtDate, fmtKm, todayIso, errorText, reminderStatus, plural } from "./ui.js";
 
 const pct = (p) => (p === null || p === undefined ? "—" : `${Math.round(p)}%`);
 
@@ -43,7 +43,6 @@ export class VlReminders extends LitElement {
   };
   static styles = [
     sheetStyles,
-    haStyles,
     css`
       :host { display: block; }
       .col { display: flex; flex-direction: column; gap: 12px; }

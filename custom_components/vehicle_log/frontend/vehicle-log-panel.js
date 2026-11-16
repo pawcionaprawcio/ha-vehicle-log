@@ -42,17 +42,17 @@ class VehicleLogPanel extends LitElement {
     }
     * { box-sizing: border-box; }
     button { font: inherit; color: inherit; cursor: pointer; }
-    .bar {
+    .toolbar {
       display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 8px 0 4px; flex: none;
       background: var(--app-header-background-color, var(--primary-background-color));
       color: var(--app-header-text-color, var(--primary-text-color));
       border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
     }
-    .bar h1 {
+    .toolbar h1 {
       margin: 0; font-size: 20px; font-weight: 400; padding-left: 12px; flex: 1; min-width: 0;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    :host(:not([narrow])) .bar h1 { flex: none; padding-left: 16px; }
+    :host(:not([narrow])) .toolbar h1 { flex: none; padding-left: 16px; }
     .icon-btn {
       background: none; border: none; width: 48px; height: 48px; border-radius: 50%; flex: none;
       display: flex; align-items: center; justify-content: center;
@@ -69,10 +69,10 @@ class VehicleLogPanel extends LitElement {
     .tabs { display: flex; height: 56px; flex: 1; justify-content: center; min-width: 0; }
     .tabs button {
       display: flex; align-items: center; gap: 8px; padding: 0 20px; background: none; border: 0;
-      border-bottom: 2px solid transparent; font-size: 14px; color: var(--secondary-text-color, #727272);
+      border-bottom: 2px solid transparent; font-size: 14px; color: var(--app-header-text-color, var(--secondary-text-color, #727272));
       --mdc-icon-size: 20px;
     }
-    .tabs button[aria-current="page"] { color: var(--primary-color, #03a9f4); border-bottom-color: var(--primary-color, #03a9f4); }
+    .tabs button[aria-current="page"] { color: var(--ha-tab-active-text-color, var(--primary-color, #03a9f4)); border-bottom-color: var(--primary-color, #03a9f4); }
     main { flex: 1; min-height: 0; overflow-y: auto; }
     .content { padding: 16px 12px 96px; }
     :host(:not([narrow])) .content { max-width: 1000px; margin: 0 auto; padding: 24px 24px 96px; }
@@ -83,10 +83,10 @@ class VehicleLogPanel extends LitElement {
     }
     nav button {
       flex: 1; background: none; border: none; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--secondary-text-color, #727272);
+      align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--app-header-text-color, var(--secondary-text-color, #727272));
     }
     nav button ha-icon { padding: 2px 18px; border-radius: 14px; }
-    nav button[aria-current="page"] { color: var(--primary-color, #03a9f4); }
+    nav button[aria-current="page"] { color: var(--ha-tab-active-text-color, var(--primary-color, #03a9f4)); }
     nav button[aria-current="page"] ha-icon { background: color-mix(in srgb, var(--primary-color, #03a9f4) 18%, transparent); }
     .fab {
       position: absolute; right: 24px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border-radius: 16px; border: none;
@@ -383,7 +383,7 @@ class VehicleLogPanel extends LitElement {
       <ha-icon icon=${icon}></ha-icon>${label}
     </button>`;
     return html`
-      <div class="bar">
+      <div class="toolbar">
         ${this.narrow
           ? html`<button class="icon-btn" aria-label="Menu" @click=${() => this._toggleMenu()}>
               <ha-icon icon="mdi:menu"></ha-icon>
