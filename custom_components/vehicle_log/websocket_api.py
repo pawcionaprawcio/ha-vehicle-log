@@ -22,7 +22,7 @@ from .xlsx_import import parse_car_notes_xlsx
 NUMERIC_FIELDS = (
     "odometer", "parts", "labour", "tax_pct", "discount_pct", "discount_amount",
     "total", "litres", "price_per_litre", "interval_km", "interval_months",
-    "baseline_odometer",
+    "baseline_odometer", "petrol_price",
 )
 INT_FIELDS = ("odometer", "interval_km", "interval_months", "baseline_odometer")
 
@@ -104,6 +104,15 @@ def _mutation(
         connection.send_result(msg["id"], _view(hass))
 
     return handler
+
+
+def _vehicle(value: Any) -> dict:
+    if not isinstance(value, dict):
+        raise vol.Invalid("expected an object")
+    out = dict(value)
+    if "petrol_l_per_100km" in out:
+        out["petrol_l_per_100km"] = num(out["petrol_l_per_100km"])
+    return out
 
 
 async def _vehicle_save(store, msg):
@@ -191,7 +200,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
         ws_get,
         ws_subscribe,
         ws_import,
-        _mutation("vehicle_log/vehicle/save", {vol.Required("vehicle"): dict}, _vehicle_save),
+        _mutation("vehicle_log/vehicle/save", {vol.Required("vehicle"): _vehicle}, _vehicle_save),
         _mutation("vehicle_log/vehicle/delete", {vol.Required("vehicle_id"): str}, _vehicle_delete),
         _mutation("vehicle_log/entry/save", {vol.Required("entry"): _entry}, _entry_save),
         _mutation("vehicle_log/entry/delete", {vol.Required("entry_id"): str}, _entry_delete),

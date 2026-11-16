@@ -44,6 +44,8 @@ SERVICE_TYPES: dict[str, dict] = {
     "towing": {"label": "Holowanie", "icon": "mdi:tow-truck"},
     "odometer_update": {"label": "Aktualizacja przebiegu", "icon": "mdi:counter"},
     "other": {"label": "Inna obsługa", "icon": "mdi:wrench"},
+    "lpg_install": {"label": "Montaż instalacji LPG", "icon": "mdi:propane-tank"},
+    "lpg_service": {"label": "Serwis LPG", "icon": "mdi:propane-tank-outline"},
     "refuel": {"label": "Tankowanie", "icon": "mdi:gas-station"},
 }
 

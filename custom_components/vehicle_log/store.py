@@ -44,7 +44,14 @@ _ENTRY_DEFAULTS: dict[str, Any] = {
     "tax_pct": None, "discount_pct": None, "discount_amount": None,
     "total": None, "part_numbers": "", "comment": "", "accessory": False,
     "fuel_type": None, "litres": None, "price_per_litre": None, "full_tank": False,
+    "petrol_price": None, "petrol_only": False,
 }
+# Fields added after the first release; filled in on load for older records.
+_LATER_ENTRY_FIELDS = ("petrol_price", "petrol_only")
+CONSUMPTION_MIN = 1
+CONSUMPTION_MAX = 50
+PETROL_PRICE_MAX = 50
+LPG = "LPG"
 
 
 def _new_id() -> str:
@@ -130,6 +137,26 @@ def _check_fuel_types(value: Any) -> list[str]:
         if fuel not in FUEL_TYPES:
             raise ValueError(f"unknown fuel type {fuel!r}")
     return list(value)
+
+
+def _check_range(label: str, value: Any, lo: float, hi: float, lo_open: bool) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{label} must be a number")
+    if not math.isfinite(value) or value > hi or value < lo or (lo_open and value == lo):
+        raise ValueError(f"{label} is out of range")
+    return float(value)
+
+
+def _check_consumption(value: Any) -> float | None:
+    """Manual petrol consumption in l/100 km: None, or 1..50."""
+    return _check_range("petrol_l_per_100km", value, CONSUMPTION_MIN, CONSUMPTION_MAX, False)
+
+
+def _check_petrol_price(value: Any) -> float | None:
+    """Petrol price per litre noted on an LPG refuel: None, or 0 < x <= 50."""
+    return _check_range("petrol_price", value, 0, PETROL_PRICE_MAX, True)
 
 
 def _check_bool(label: str, value: Any) -> bool:
@@ -305,9 +332,12 @@ class VehicleLogStore:
                 "purchase_date": lambda x: _check_date("purchase_date", x),
                 "icon": lambda x: _check_len("icon", x, NAME_MAX),
                 "fuel_types": _check_fuel_types,
-            }, {"fuel_types": []})
+                "petrol_l_per_100km": _check_consumption,
+            }, {"fuel_types": [], "petrol_l_per_100km": None})
             if not isinstance(fixed.get("fuel_types"), list):
                 fixed = {**fixed, "fuel_types": []}
+            if "petrol_l_per_100km" not in fixed:
+                fixed = {**fixed, "petrol_l_per_100km": None}
             return fixed
 
         data["vehicles"] = sweep(data["vehicles"], handle_vehicle)
@@ -324,11 +354,16 @@ class VehicleLogStore:
             entry_fixes[f] = lambda x, f=f: _check_amount(f, x)
         entry_fixes["accessory"] = lambda x: _check_bool("accessory", x)
         entry_fixes["full_tank"] = lambda x: _check_bool("full_tank", x)
+        entry_fixes["petrol_price"] = _check_petrol_price
+        entry_fixes["petrol_only"] = lambda x: _check_bool("petrol_only", x)
 
         def handle_entry(e: dict) -> dict:
             if "kind" not in e:
                 raise ValueError("kind is missing")
             fixed = repair(e, entry_fixes, _ENTRY_DEFAULTS)
+            missing = {k: _ENTRY_DEFAULTS[k] for k in _LATER_ENTRY_FIELDS if k not in fixed}
+            if missing:
+                fixed = {**fixed, **missing}
             self._normalize_entry(fixed, ids)
             if not entry_is_valid(fixed):
                 raise ValueError("entry values are out of range")
@@ -422,6 +457,13 @@ class VehicleLogStore:
             e[field] = _check_amount(field, e[field])
         e["accessory"] = _check_bool("accessory", e["accessory"])
         e["full_tank"] = _check_bool("full_tank", e["full_tank"])
+        e["petrol_price"] = _check_petrol_price(e["petrol_price"])
+        e["petrol_only"] = _check_bool("petrol_only", e["petrol_only"])
+        is_lpg = e["kind"] == "refuel" and e["fuel_type"] == LPG
+        if not is_lpg:
+            e["petrol_price"] = None
+        if e["kind"] != "refuel" or is_lpg:
+            e["petrol_only"] = False
         if e["kind"] == "refuel":
             e["service_type"] = "refuel"
             e["total"], e["litres"], e["price_per_litre"] = normalize_refuel(
@@ -480,6 +522,7 @@ class VehicleLogStore:
             "purchase_date": _check_date("purchase_date", v.get("purchase_date")),
             "icon": v.get("icon"),
             "fuel_types": _check_fuel_types(v.get("fuel_types")),
+            "petrol_l_per_100km": _check_consumption(v.get("petrol_l_per_100km")),
         }
         if not isinstance(vehicle["id"], str):
             raise ValueError("id must be text")
@@ -519,16 +562,28 @@ class VehicleLogStore:
             copy.deepcopy(self._data["reminders"]),
             list(self._data["notified"]),
             set(self._dropped),
+            copy.deepcopy(self._data["vehicles"]),
         )
         try:
             self._upsert(self._data["entries"], entry)
             self._apply_reminder_resets(entry)
+            if entry["kind"] == "service" and entry["service_type"] == "lpg_install":
+                self._add_lpg_fuel(entry["vehicle_id"])
         except Exception:
             (self._data["entries"], self._data["reminders"],
-             self._data["notified"], self._dropped) = snapshot
+             self._data["notified"], self._dropped,
+             self._data["vehicles"]) = snapshot
             raise
         self._changed()
         return copy.deepcopy(entry)
+
+    def _add_lpg_fuel(self, vehicle_id: str) -> None:
+        """An LPG install implies the vehicle now runs on LPG, if there is room."""
+        vehicle = next(v for v in self._data["vehicles"] if v["id"] == vehicle_id)
+        fuels = vehicle.get("fuel_types") or []
+        if LPG in fuels or len(fuels) >= VEHICLE_FUEL_TYPES_MAX:
+            return
+        vehicle["fuel_types"] = sorted([*fuels, LPG], key=FUEL_TYPES.index)
 
     async def async_delete_entry(self, entry_id: str) -> None:
         self._data["entries"] = [
@@ -643,7 +698,7 @@ class VehicleLogStore:
                 vehicle = {
                     "id": _new_id(), "name": pv["name"],
                     "purchase_date": pv["purchase_date"], "icon": None,
-                    "fuel_types": [],
+                    "fuel_types": [], "petrol_l_per_100km": None,
                 }
                 work["vehicles"].append(vehicle)
                 by_name[pv["name"].casefold()] = vehicle

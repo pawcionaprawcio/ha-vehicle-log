@@ -35,7 +35,7 @@ def test_parse_date_iso():
 
 
 def test_catalog_complete():
-    assert len(SERVICE_TYPES) == 27
+    assert len(SERVICE_TYPES) == 29
     assert SERVICE_TYPES["odometer_update"]["label"] == "Aktualizacja przebiegu"
     assert all(k in SERVICE_TYPES for k in REMINDER_TEMPLATES)
 
