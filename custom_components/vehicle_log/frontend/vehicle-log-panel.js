@@ -60,8 +60,10 @@ class VehicleLogPanel extends LitElement {
     .picker {
       display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px 0 12px; border-radius: 18px;
       background: none; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); font-size: 14px;
-      max-width: 55%; flex: none; --mdc-icon-size: 20px; margin-left: auto;
+      max-width: 55%; flex: none; --mdc-icon-size: 20px; margin-left: auto; position: relative;
     }
+    /* 48px touch target around the 36px pill */
+    .picker::before { content: ""; position: absolute; inset: -6px -4px; }
     .picker span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .picker ha-icon:first-child { color: var(--secondary-text-color, #727272); }
     .tabs { display: flex; height: 56px; flex: 1; justify-content: center; min-width: 0; }
@@ -226,8 +228,13 @@ class VehicleLogPanel extends LitElement {
     storage.set(KEY_VEHICLE, id);
   }
 
+  get _showPicker() {
+    return (this._view?.vehicles.length ?? 0) > 1 && this._tab !== "garage";
+  }
+
   _selectTab(tab) {
     this._tab = tab;
+    if (this._pop === "vehicle") this._pop = null;
     storage.set(KEY_TAB, tab);
   }
 
@@ -276,7 +283,7 @@ class VehicleLogPanel extends LitElement {
       return html`<div class="overlay" @click=${() => (this._pop = null)}></div>
         <div class="pop add">${this._addItems()}</div>`;
     }
-    if (this._pop === "vehicle") {
+    if (this._pop === "vehicle" && this._showPicker) {
       const vehicles = this._view?.vehicles ?? [];
       return html`<div class="overlay" @click=${() => (this._pop = null)}></div>
         <div class="pop veh" role="listbox" aria-label="Pojazd">
@@ -371,7 +378,7 @@ class VehicleLogPanel extends LitElement {
   render() {
     const vehicles = this._view?.vehicles ?? [];
     const showFab = this._view && this._vehicle && this._tab !== "garage";
-    const showPicker = vehicles.length > 1 && this._tab !== "garage";
+    const showPicker = this._showPicker;
     const tabBtn = ([id, label, icon]) => html`<button aria-current=${this._tab === id ? "page" : "false"} @click=${() => this._selectTab(id)}>
       <ha-icon icon=${icon}></ha-icon>${label}
     </button>`;
