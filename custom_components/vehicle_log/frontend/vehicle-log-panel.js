@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing, storage, errorText } from "./ui.js";
+import { LitElement, html, css, nothing, storage, errorText, haStyles } from "./ui.js";
 import "./view-entries.js";
 import "./form-entry.js";
 import "./form-refuel.js";
@@ -13,7 +13,7 @@ const KEY_TAB = "vehicle_log.tab";
 const TABS = [
   ["entries", "Wpisy", "mdi:format-list-bulleted"],
   ["reminders", "Przypomnienia", "mdi:bell-outline"],
-  ["garage", "Garaż", "mdi:car-multiple"],
+  ["garage", "Garaż", "mdi:garage-variant"],
 ];
 const MAX_BACKOFF_MS = 30000;
 
@@ -28,64 +28,110 @@ class VehicleLogPanel extends LitElement {
     _tab: { state: true },
     _sheet: { state: true },
     _connError: { state: true },
+    _pop: { state: true },
+    _openId: { state: true },
   };
 
-  static styles = css`
+  static styles = [
+    haStyles,
+    css`
     :host {
       display: flex; flex-direction: column; height: 100vh; height: 100dvh; position: relative;
       background: var(--primary-background-color); color: var(--primary-text-color);
       font-family: var(--paper-font-body1_-_font-family, inherit);
     }
     * { box-sizing: border-box; }
-    .bar {
-      display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 12px; flex: none;
-      background: var(--app-header-background-color, var(--primary-color));
-      color: var(--app-header-text-color, var(--text-primary-color, #fff));
-    }
-    .bar h1 { margin: 0; font-size: 20px; font-weight: 400; }
     button { font: inherit; color: inherit; cursor: pointer; }
-    .icon-btn { background: none; border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .chips { display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; flex: none; }
-    .chip {
-      flex: none; min-height: 48px; padding: 0 20px; border-radius: 24px; white-space: nowrap;
-      background: var(--card-background-color, #fff); border: 1px solid var(--divider-color);
+    .bar {
+      display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 8px 0 4px; flex: none;
+      background: var(--app-header-background-color, var(--primary-background-color));
+      color: var(--app-header-text-color, var(--primary-text-color));
+      border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
     }
-    .chip[aria-pressed="true"] { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
+    .bar h1 {
+      margin: 0; font-size: 20px; font-weight: 400; padding-left: 12px; flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    :host(:not([narrow])) .bar h1 { flex: none; padding-left: 16px; }
+    .icon-btn {
+      background: none; border: none; width: 48px; height: 48px; border-radius: 50%; flex: none;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .picker {
+      display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 8px 0 12px; border-radius: 18px;
+      background: none; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); font-size: 14px;
+      max-width: 55%; flex: none; --mdc-icon-size: 20px; margin-left: auto;
+    }
+    .picker span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .picker ha-icon:first-child { color: var(--secondary-text-color, #727272); }
+    .tabs { display: flex; height: 56px; flex: 1; justify-content: center; min-width: 0; }
+    .tabs button {
+      display: flex; align-items: center; gap: 8px; padding: 0 20px; background: none; border: 0;
+      border-bottom: 2px solid transparent; font-size: 14px; color: var(--secondary-text-color, #727272);
+      --mdc-icon-size: 20px;
+    }
+    .tabs button[aria-current="page"] { color: var(--primary-color, #03a9f4); border-bottom-color: var(--primary-color, #03a9f4); }
     main { flex: 1; min-height: 0; overflow-y: auto; }
+    .content { padding: 16px 12px 96px; }
+    :host(:not([narrow])) .content { max-width: 1000px; margin: 0 auto; padding: 24px 24px 96px; }
     nav {
-      display: flex; flex: none; border-top: 1px solid var(--divider-color);
-      background: var(--card-background-color, #fff); padding-bottom: env(safe-area-inset-bottom);
+      display: flex; flex: none; height: 60px; border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+      background: var(--app-header-background-color, var(--primary-background-color)); box-sizing: content-box;
+      padding-bottom: env(safe-area-inset-bottom);
     }
     nav button {
-      flex: 1; min-height: 56px; background: none; border: none; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--secondary-text-color);
+      flex: 1; background: none; border: none; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px; font-size: 12px; color: var(--secondary-text-color, #727272);
     }
-    nav button[aria-current="page"] { color: var(--primary-color); }
+    nav button ha-icon { padding: 2px 18px; border-radius: 14px; }
+    nav button[aria-current="page"] { color: var(--primary-color, #03a9f4); }
+    nav button[aria-current="page"] ha-icon { background: color-mix(in srgb, var(--primary-color, #03a9f4) 18%, transparent); }
     .fab {
-      position: absolute; right: 16px; bottom: 80px; width: 56px; height: 56px; border-radius: 50%; border: none;
-      background: var(--primary-color); color: var(--text-primary-color, #fff); font-size: 28px;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); z-index: 5;
+      position: absolute; right: 24px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border-radius: 16px; border: none;
+      display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; z-index: 5;
+      background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
     }
-    .center { padding: 32px 16px; text-align: center; color: var(--secondary-text-color); }
-    .add { margin-top: 16px; min-height: 48px; padding: 0 24px; border: none; border-radius: 24px; background: var(--primary-color); color: var(--text-primary-color, #fff); }
-    .error { color: var(--error-color, #db4437); }
-    .overlay { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; }
+    :host([narrow]) .fab { right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+    .overlay { position: fixed; inset: 0; z-index: 30; }
+    .overlay.dim { background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; }
     .menu {
-      width: 100%; max-width: 520px; background: var(--card-background-color, #fff); border-radius: 12px 12px 0 0;
-      padding: 8px 0 16px;
+      background: var(--card-background-color, #fff); padding: 8px 0 16px; width: 100%;
+      border-radius: 16px 16px 0 0;
     }
-    .menu button {
+    .menu button, .pop button {
       display: flex; align-items: center; gap: 16px; width: 100%; min-height: 56px; padding: 0 20px; font-size: 16px;
       background: none; border: none; text-align: left;
     }
-    .menu ha-icon { color: var(--secondary-text-color); }
-  `;
+    .menu ha-icon, .pop ha-icon { color: var(--secondary-text-color, #727272); flex: none; }
+    .pop {
+      position: absolute; z-index: 31; background: var(--card-background-color, #fff); border-radius: 12px;
+      border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+    .pop.add { width: 240px; right: 24px; bottom: 88px; }
+    .pop.veh { top: 52px; right: 8px; width: 280px; max-width: calc(100% - 16px); max-height: 60vh; overflow-y: auto; }
+    .pop.veh button { min-height: 48px; padding: 0 16px; font-size: 15px; }
+    .pop.veh button span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .pop.veh button ha-icon { color: var(--primary-color, #03a9f4); }
+    .pop button + button { border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); }
+    .center { padding: 32px 16px; }
+    .center .btn { margin-top: 16px; }
+  `,
+  ];
 
   constructor() {
     super();
     this._view = null;
     this._sheet = null;
     this._connError = "";
+    this._pop = null;
+    this._openId = null;
+    this._onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (this._pop) this._pop = null;
+      else if (this._sheet?.type === "menu") this._sheet = null;
+    };
     this._vehicleId = storage.get(KEY_VEHICLE);
     this._tab = TABS.some((t) => t[0] === storage.get(KEY_TAB)) ? storage.get(KEY_TAB) : "entries";
     this._token = 0;
@@ -97,11 +143,13 @@ class VehicleLogPanel extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    window.addEventListener("keydown", this._onKey);
     this._connect();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener("keydown", this._onKey);
     this._teardown();
   }
 
@@ -174,6 +222,7 @@ class VehicleLogPanel extends LitElement {
 
   _selectVehicle(id) {
     this._vehicleId = id;
+    this._pop = null;
     storage.set(KEY_VEHICLE, id);
   }
 
@@ -191,11 +240,54 @@ class VehicleLogPanel extends LitElement {
   }
 
   _onFab() {
-    this._sheet = this._tab === "reminders" ? { type: "reminder" } : { type: "menu" };
+    if (this._tab === "reminders") this._sheet = { type: "reminder" };
+    else if (this.narrow) this._sheet = { type: "menu" };
+    else this._pop = "add";
+  }
+
+  _onOpenReminder(e) {
+    // detail: reminder id, or null to only switch to the reminders tab.
+    this._selectTab("reminders");
+    this._openId = e.detail ?? null;
   }
 
   _onSaved(e) {
     this._setView(e.detail);
+  }
+
+  _addItems() {
+    const choices = [
+      ["refuel", "Tankowanie", "mdi:gas-station"],
+      ["service", "Serwis", "mdi:wrench"],
+      ["odometer", "Odczyt przebiegu", "mdi:counter"],
+    ];
+    return choices.map(
+      ([type, label, icon]) => html`<button @click=${() => {
+        this._pop = null;
+        this._sheet = { type };
+      }}>
+        <ha-icon icon=${icon}></ha-icon>${label}
+      </button>`,
+    );
+  }
+
+  _renderPop() {
+    if (this._pop === "add") {
+      return html`<div class="overlay" @click=${() => (this._pop = null)}></div>
+        <div class="pop add">${this._addItems()}</div>`;
+    }
+    if (this._pop === "vehicle") {
+      const vehicles = this._view?.vehicles ?? [];
+      return html`<div class="overlay" @click=${() => (this._pop = null)}></div>
+        <div class="pop veh" role="listbox" aria-label="Pojazd">
+          ${vehicles.map(
+            (v) => html`<button role="option" aria-selected=${v.id === this._vehicleId} @click=${() => this._selectVehicle(v.id)}>
+              <span>${v.name}</span>${v.id === this._vehicleId ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}
+            </button>`,
+          )}
+        </div>`;
+    }
+    return nothing;
   }
 
   _renderSheet() {
@@ -203,19 +295,8 @@ class VehicleLogPanel extends LitElement {
     if (!s) return nothing;
     const close = () => (this._sheet = null);
     if (s.type === "menu") {
-      const choices = [
-        ["service", "Dodaj serwis", "mdi:wrench"],
-        ["refuel", "Dodaj tankowanie", "mdi:gas-station"],
-        ["odometer", "Aktualizuj przebieg", "mdi:counter"],
-      ];
-      return html`<div class="overlay" @click=${close}>
-        <div class="menu" @click=${(e) => e.stopPropagation()}>
-          ${choices.map(
-            ([type, label, icon]) => html`<button @click=${() => (this._sheet = { type })}>
-              <ha-icon icon=${icon}></ha-icon>${label}
-            </button>`,
-          )}
-        </div>
+      return html`<div class="overlay dim" @click=${close}>
+        <div class="menu" @click=${(e) => e.stopPropagation()}>${this._addItems()}</div>
       </div>`;
     }
     const p = { hass: this.hass, view: this._view, vehicle: this._vehicle, entry: s.entry };
@@ -241,7 +322,7 @@ class VehicleLogPanel extends LitElement {
 
   _renderContent() {
     if (!this._view) {
-      return html`<div class="center">
+      return html`<div class="empty center">
         ${this._connError
           ? html`<div class="error" role="alert">Nie można połączyć z integracją: ${this._connError}</div>
               <div>Ponawiam próbę…</div>`
@@ -252,6 +333,7 @@ class VehicleLogPanel extends LitElement {
       return html`<vl-garage
         .hass=${this.hass}
         .view=${this._view}
+        ?wide=${!this.narrow}
         @saved=${(e) => this._onSaved(e)}
         @add-vehicle=${() => (this._sheet = { type: "vehicle" })}
         @edit-vehicle=${(e) => (this._sheet = { type: "vehicle", entry: e.detail })}
@@ -259,9 +341,9 @@ class VehicleLogPanel extends LitElement {
     }
     const v = this._vehicle;
     if (!v) {
-      return html`<div class="center">
+      return html`<div class="empty center">
         Brak pojazdów.<br />
-        <button class="add" @click=${() => (this._sheet = { type: "vehicle" })}>Dodaj pojazd</button>
+        <button class="btn fill" @click=${() => (this._sheet = { type: "vehicle" })}>Dodaj pojazd</button>
       </div>`;
     }
     if (this._tab === "reminders") {
@@ -270,6 +352,9 @@ class VehicleLogPanel extends LitElement {
         .vehicle=${v}
         .serviceTypes=${this._view.service_types}
         ?narrow=${this.narrow}
+        ?wide=${!this.narrow}
+        .openId=${this._openId}
+        @reminder-opened=${() => (this._openId = null)}
         @saved=${(e) => this._onSaved(e)}
         @add-odometer=${() => (this._sheet = { type: "odometer" })}
         @edit-reminder=${(e) => (this._sheet = { type: "reminder", entry: e.detail })}
@@ -278,6 +363,7 @@ class VehicleLogPanel extends LitElement {
     return html`<vl-entries
       .vehicle=${v}
       .serviceTypes=${this._view.service_types}
+      ?wide=${!this.narrow}
       @edit-entry=${(e) => this._openEdit(e.detail)}
     ></vl-entries>`;
   }
@@ -285,6 +371,10 @@ class VehicleLogPanel extends LitElement {
   render() {
     const vehicles = this._view?.vehicles ?? [];
     const showFab = this._view && this._vehicle && this._tab !== "garage";
+    const showPicker = vehicles.length > 1 && this._tab !== "garage";
+    const tabBtn = ([id, label, icon]) => html`<button aria-current=${this._tab === id ? "page" : "false"} @click=${() => this._selectTab(id)}>
+      <ha-icon icon=${icon}></ha-icon>${label}
+    </button>`;
     return html`
       <div class="bar">
         ${this.narrow
@@ -293,25 +383,21 @@ class VehicleLogPanel extends LitElement {
             </button>`
           : nothing}
         <h1>Dziennik pojazdu</h1>
+        ${this.narrow ? nothing : html`<div class="tabs">${TABS.map(tabBtn)}</div>`}
+        ${showPicker
+          ? html`<button class="picker" aria-haspopup="listbox" aria-label="Pojazd" @click=${() => (this._pop = this._pop === "vehicle" ? null : "vehicle")}>
+              <ha-icon icon="mdi:car"></ha-icon><span>${this._vehicle?.name ?? ""}</span><ha-icon icon="mdi:menu-down"></ha-icon>
+            </button>`
+          : nothing}
       </div>
-      ${vehicles.length > 1
-        ? html`<div class="chips" role="group" aria-label="Pojazd">
-            ${vehicles.map(
-              (v) => html`<button class="chip" aria-pressed=${v.id === this._vehicleId} @click=${() => this._selectVehicle(v.id)}>
-                ${v.name}
-              </button>`,
-            )}
-          </div>`
+      <main><div class="content" @open-reminder=${(e) => this._onOpenReminder(e)}>${this._renderContent()}</div></main>
+      ${showFab
+        ? html`<button class="fab" aria-label=${this._tab === "reminders" ? "Dodaj przypomnienie" : "Dodaj"} @click=${() => this._onFab()}>
+            <ha-icon icon="mdi:plus"></ha-icon>${this._tab === "reminders" ? "Przypomnienie" : "Dodaj"}
+          </button>`
         : nothing}
-      <main>${this._renderContent()}</main>
-      ${showFab ? html`<button class="fab" aria-label="Dodaj" @click=${() => this._onFab()}>+</button>` : nothing}
-      <nav>
-        ${TABS.map(
-          ([id, label, icon]) => html`<button aria-current=${this._tab === id ? "page" : "false"} @click=${() => this._selectTab(id)}>
-            <ha-icon icon=${icon}></ha-icon>${label}
-          </button>`,
-        )}
-      </nav>
+      ${this.narrow ? html`<nav>${TABS.map(tabBtn)}</nav>` : nothing}
+      ${this._renderPop()}
       ${this._renderSheet()}
     `;
   }
