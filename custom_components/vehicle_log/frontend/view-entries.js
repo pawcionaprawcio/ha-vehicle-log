@@ -42,7 +42,6 @@ export class VlEntries extends LitElement {
       .li .chev { color: var(--secondary-text-color, #727272); flex: none; }
       .groups { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
       .groups .card { margin-bottom: 8px; }
-      .li .t1.refuel-end { font-size: 15px; }
     `,
   ];
 
@@ -178,7 +177,7 @@ export class VlEntries extends LitElement {
   _history(v) {
     const groups = [];
     for (const e of v.entries || []) {
-      const label = monthLabel(e.date);
+      const label = e.date ? monthLabel(e.date) : "Bez daty";
       const last = groups[groups.length - 1];
       if (last && last.label === label) last.items.push(e);
       else groups.push({ label, items: [e] });

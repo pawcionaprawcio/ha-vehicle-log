@@ -210,6 +210,8 @@ export const haStyles = css`
   .card-h a, .card-h button {
     color: var(--primary-color, #03a9f4); font-size: 14px; font-weight: 500; text-decoration: none;
     background: none; border: 0; cursor: pointer; font-family: inherit;
+    min-height: 48px; padding: 0 16px; margin: -12px -16px 0 0;
+    display: inline-flex; align-items: center;
   }
   .sec-h { font-size: 14px; font-weight: 500; color: var(--secondary-text-color, #727272); margin: 4px 4px 0; }
   .li {
