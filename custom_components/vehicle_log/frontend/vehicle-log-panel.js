@@ -52,12 +52,13 @@ class VehicleLogPanel extends LitElement {
       background: var(--app-header-background-color, var(--primary-background-color));
       color: var(--app-header-text-color, var(--primary-text-color));
       border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+      container-type: inline-size;
     }
     .toolbar h1 {
       margin: 0; font-size: 20px; font-weight: 400; padding-left: 12px; flex: 1; min-width: 0;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    :host(:not([narrow])) .toolbar h1 { flex: none; padding-left: 16px; }
+    :host(:not([narrow])) .toolbar h1 { flex: 0 1 auto; padding-left: 16px; }
     .icon-btn {
       background: none; border: none; width: 48px; height: 48px; border-radius: 50%; flex: none;
       display: flex; align-items: center; justify-content: center;
@@ -77,7 +78,18 @@ class VehicleLogPanel extends LitElement {
       border-bottom: 2px solid transparent; font-size: 14px; color: var(--app-header-text-color, var(--secondary-text-color, #727272));
       --mdc-icon-size: 20px;
     }
-    .tabs button[aria-current="page"] { color: var(--ha-tab-active-text-color, var(--primary-color, #03a9f4)); border-bottom-color: var(--primary-color, #03a9f4); }
+    .tabs button { flex: none; position: relative; }
+    .tabs button[aria-current="page"] {
+      color: var(--ha-tab-active-text-color, var(--primary-color, #03a9f4));
+      border-bottom-color: var(--ha-tab-active-indicator-color, var(--ha-tab-active-text-color, var(--primary-color, #03a9f4)));
+    }
+    /* Not enough room for labelled tabs next to the title and the picker: icons only. */
+    @container (max-width: 820px) {
+      .tabs button { padding: 0 16px; }
+      .tabs button .label {
+        position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+      }
+    }
     main { flex: 1; min-height: 0; overflow-y: auto; }
     .content { padding: 16px 12px 96px; }
     :host(:not([narrow])) .content { max-width: 1000px; margin: 0 auto; padding: 24px 24px 96px; }
@@ -405,7 +417,7 @@ class VehicleLogPanel extends LitElement {
     const showFab = this._view && this._vehicle && this._tab !== "garage";
     const showPicker = this._showPicker;
     const tabBtn = ([id, label, icon]) => html`<button aria-current=${this._tab === id ? "page" : "false"} @click=${() => this._selectTab(id)}>
-      <ha-icon icon=${icon}></ha-icon>${t(label)}
+      <ha-icon icon=${icon}></ha-icon><span class="label">${t(label)}</span>
     </button>`;
     return html`
       <div class="toolbar">

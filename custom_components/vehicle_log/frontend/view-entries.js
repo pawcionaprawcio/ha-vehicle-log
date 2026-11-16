@@ -14,12 +14,15 @@ export class VlEntries extends LitElement {
   static styles = [
     haStyles,
     css`
-      :host { display: block; color: var(--primary-text-color); }
+      :host { display: block; color: var(--primary-text-color); container-type: inline-size; }
       * { box-sizing: border-box; }
       .layout { display: flex; flex-direction: column; gap: 12px; }
-      :host([wide]) .layout {
-        display: grid; grid-template-columns: 380px minmax(0, 560px); gap: 16px;
-        justify-content: center; align-items: start;
+      /* Two columns only when the panel itself is wide enough (sidebar open eats ~256px). */
+      @container (min-width: 760px) {
+        :host([wide]) .layout {
+          display: grid; grid-template-columns: 380px minmax(0, 560px); gap: 16px;
+          justify-content: center; align-items: start;
+        }
       }
       .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
       .vhead { display: flex; align-items: center; gap: 12px; padding: 16px 16px 0; }
