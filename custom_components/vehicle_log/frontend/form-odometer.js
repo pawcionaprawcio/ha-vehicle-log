@@ -1,4 +1,4 @@
-import { VlForm, html, parseNum, badNum, intError, toField, todayIso } from "./ui.js";
+import { VlForm, html, parseNum, badNum, intError, toField, todayIso, fmtInt } from "./ui.js";
 
 export class VlOdometerForm extends VlForm {
   static properties = {
@@ -36,7 +36,11 @@ export class VlOdometerForm extends VlForm {
 
   renderBody() {
     return html`<div class="body">
-      ${this.field("Przebieg (km)", this._odometer, (v) => (this._odometer = v), { inputmode: "numeric" })}
+      ${this.field("Przebieg", this._odometer, (v) => (this._odometer = v), {
+        inputmode: "numeric",
+        suffix: "km",
+        placeholder: !this.editing && this.vehicle?.odometer != null ? `ostatnio ${fmtInt(this.vehicle.odometer)}` : "",
+      })}
       ${this.field("Data", this._date, (v) => (this._date = v), { type: "date" })}
     </div>`;
   }

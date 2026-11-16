@@ -1,4 +1,4 @@
-import "./type-picker.js";
+import { typeRow } from "./type-picker.js";
 import { VlForm, html, nothing, parseNum, badNum, intError, toField, todayIso, addMonths, fmtDate, fmtKm, LIMITS } from "./ui.js";
 
 const EXTRA_MAX = 300;
@@ -101,8 +101,9 @@ export class VlReminderForm extends VlForm {
     const date = months >= 1 && months <= 1200 ? addMonths(f.baseline_date, Math.round(months)) : null;
     const dueKm = km > 0 && odo !== null ? odo + Math.round(km) : null;
     if (!date && dueKm === null) return nothing;
-    return html`<div class="hint" aria-live="polite">
-      Termin: ${[dueKm !== null ? fmtKm(dueKm) : null, date ? fmtDate(date) : null].filter(Boolean).join(" lub ")}
+    return html`<div class="alert" style="background: color-mix(in srgb, var(--primary-color, #03a9f4) 12%, transparent); border-color: color-mix(in srgb, var(--primary-color, #03a9f4) 35%, transparent)" aria-live="polite">
+      <ha-icon icon="mdi:calendar-clock" style="color: var(--primary-color, #03a9f4)"></ha-icon>
+      <span class="t" style="padding: 4px 0">Termin: ${[dueKm !== null ? fmtKm(dueKm) : null, date ? fmtDate(date) : null].filter(Boolean).join(" lub ")}</span>
     </div>`;
   }
 
@@ -116,19 +117,17 @@ export class VlReminderForm extends VlForm {
     const f = this._f;
     const type = this.view?.service_types?.[f.service_type];
     return html`<div class="body">
-      ${this.editing
-        ? nothing
-        : html`<button class="link" @click=${() => (this._step = 1)}>
-            ${type ? `Rodzaj: ${type.label} (zmień)` : "Zmień rodzaj"}
-          </button>`}
+      ${this.editing ? nothing : typeRow(type, () => (this._step = 1))}
       ${this.field("Tekst", f.text, (v) => this._set("text", v), { maxlength: LIMITS.name })}
       ${this.textArea("Dodatkowy tekst", f.extra_text, EXTRA_MAX, (v) => this._set("extra_text", v))}
       <div class="row">
-        ${this.field("Co (km)", f.interval_km, (v) => this._set("interval_km", v), { inputmode: "numeric" })}
-        ${this.field("Co (miesięcy)", f.interval_months, (v) => this._set("interval_months", v), { inputmode: "numeric" })}
+        ${this.field("Co ile km", f.interval_km, (v) => this._set("interval_km", v), { inputmode: "numeric", suffix: "km" })}
+        ${this.field("Co ile miesięcy", f.interval_months, (v) => this._set("interval_months", v), { inputmode: "numeric", suffix: "mies." })}
       </div>
-      ${this.field("Przebieg bazowy (km)", f.baseline_odometer, (v) => this._set("baseline_odometer", v), { inputmode: "numeric" })}
-      ${this.field("Data bazowa", f.baseline_date, (v) => this._set("baseline_date", v), { type: "date" })}
+      <div class="row">
+        ${this.field("Przebieg bazowy", f.baseline_odometer, (v) => this._set("baseline_odometer", v), { inputmode: "numeric", suffix: "km" })}
+        ${this.field("Data bazowa", f.baseline_date, (v) => this._set("baseline_date", v), { type: "date" })}
+      </div>
       ${this._due()}
     </div>`;
   }

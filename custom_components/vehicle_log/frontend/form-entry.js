@@ -1,4 +1,4 @@
-import "./type-picker.js";
+import { typeRow } from "./type-picker.js";
 import { VlForm, html, nothing, parseNum, badNum, intError, toField, fmtDec, todayIso, entryTotal, LIMITS } from "./ui.js";
 
 const NUMERIC = ["odometer", "parts", "labour", "total", "tax_pct", "discount_pct", "discount_amount"];
@@ -10,6 +10,7 @@ export class VlEntryForm extends VlForm {
     _f: { state: true },
     _totalTouched: { state: true },
     _showTax: { state: true },
+    _showNotes: { state: true },
   };
   willUpdate(changed) {
     if (changed.has("entry") || !this._f) this._init();
@@ -36,6 +37,7 @@ export class VlEntryForm extends VlForm {
     const auto = entryTotal(e.parts, e.labour, e.tax_pct, e.discount_pct, e.discount_amount);
     this._totalTouched = this.editing && e.total !== null && e.total !== undefined && e.total !== auto;
     this._showTax = Boolean(e.tax_pct || e.discount_pct || e.discount_amount);
+    this._showNotes = Boolean(e.part_numbers || e.comment);
   }
 
   get heading() {
@@ -103,43 +105,48 @@ export class VlEntryForm extends VlForm {
     const f = this._f;
     const type = this.view?.service_types?.[f.service_type];
     return html`<div class="body">
-      ${this.editing
-        ? nothing
-        : html`<button class="link" @click=${() => (this._step = 1)}>
-            ${type ? `Rodzaj: ${type.label} (zmień)` : "Zmień rodzaj"}
-          </button>`}
+      ${this.editing ? nothing : typeRow(type, () => (this._step = 1))}
       ${this.field("Nazwa", f.name, (v) => this._set("name", v), { maxlength: LIMITS.name })}
-      ${this.field("Data", f.date, (v) => this._set("date", v), { type: "date" })}
-      ${this.field("Przebieg (km)", f.odometer, (v) => this._set("odometer", v), { inputmode: "numeric" })}
       <div class="row">
-        ${this.num("Części (zł)", f.parts, (v) => this._set("parts", v))}
-        ${this.num("Robocizna (zł)", f.labour, (v) => this._set("labour", v))}
+        ${this.field("Data", f.date, (v) => this._set("date", v), { type: "date" })}
+        ${this.field("Przebieg", f.odometer, (v) => this._set("odometer", v), { inputmode: "numeric", suffix: "km" })}
       </div>
-      ${this._showTax
-        ? html`${this.num("Podatek (%)", f.tax_pct, (v) => this._set("tax_pct", v))}
-            <div class="row">
-              ${this.num("Rabat (%)", f.discount_pct, (v) => this._set("discount_pct", v))}
-              ${this.num("Rabat (zł)", f.discount_amount, (v) => this._set("discount_amount", v))}
-            </div>`
-        : html`<button class="link" @click=${() => (this._showTax = true)}>Dodaj podatek lub rabat</button>`}
+      <div class="row">
+        ${this.num("Części", f.parts, (v) => this._set("parts", v), "", "zł")}
+        ${this.num("Robocizna", f.labour, (v) => this._set("labour", v), "", "zł")}
+      </div>
+      ${this.expander(
+        this._showTax,
+        "Podatek lub rabat",
+        () => (this._showTax = true),
+        html`${this.num("Podatek", f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
+          <div class="row">
+            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%", "Rabat (%)")}
+            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", "Rabat (zł)")}
+          </div>`,
+      )}
       ${this.field(
-        "Razem (zł)",
+        "Razem",
         this._totalTouched ? f.total : this._autoTotal(),
         (v) => {
           this._totalTouched = true;
           this._set("total", v);
         },
-        { inputmode: "decimal" },
+        { inputmode: "decimal", suffix: "zł" },
       )}
       ${this._totalTouched
-        ? html`<button class="link" @click=${() => (this._totalTouched = false)}>Wylicz automatycznie</button>`
+        ? html`<button class="btn text" style="align-self:flex-start" @click=${() => (this._totalTouched = false)}>
+            Wylicz automatycznie
+          </button>`
         : nothing}
-      ${this.field("Numery części", f.part_numbers, (v) => this._set("part_numbers", v), { maxlength: LIMITS.part_numbers })}
-      ${this.textArea("Komentarz", f.comment, LIMITS.comment, (v) => this._set("comment", v))}
-      <label class="check">
-        <input type="checkbox" .checked=${f.accessory} @change=${(e) => this._set("accessory", e.target.checked)} />
-        Licz jako koszt akcesoriów
-      </label>
+      ${this.expander(
+        this._showNotes,
+        "Numery części i komentarz",
+        () => (this._showNotes = true),
+        html`${this.field("Numery części", f.part_numbers, (v) => this._set("part_numbers", v), { maxlength: LIMITS.part_numbers })}
+          ${this.textArea("Komentarz", f.comment, LIMITS.comment, (v) => this._set("comment", v))}`,
+      )}
+      ${this.switchRow("Koszt akcesoriów", f.accessory, (v) => this._set("accessory", v))}
     </div>`;
   }
 }
