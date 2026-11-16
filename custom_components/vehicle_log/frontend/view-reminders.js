@@ -1,16 +1,30 @@
-import { LitElement, html, css, nothing, sheetStyles, fmtDate, fmtKm, todayIso, errorText } from "./ui.js";
+import { LitElement, html, css, nothing, haStyles, sheetStyles, fmtDate, fmtKm, todayIso, errorText, reminderStatus, plural } from "./ui.js";
 
-const barClass = (p) => (p >= 100 ? "red" : p >= 80 ? "amber" : "");
 const pct = (p) => (p === null || p === undefined ? "—" : `${Math.round(p)}%`);
 
+const daysUnit = (n) => plural(n, "dzień", "dni", "dni");
+
+/** Relative text of the days limit: "za 9 dni" / "3 dni po terminie". */
 function daysText(n) {
   const a = Math.abs(n);
-  const unit = a === 1 ? "dzień" : "dni";
-  return n < 0 ? `po terminie ${a} ${unit}` : `za ${a} ${unit}`;
+  return n < 0 ? `${a} ${daysUnit(a)} po terminie` : `za ${a} ${daysUnit(a)}`;
 }
 
+/** Relative text of the km limit: "za 9 800 km" / "1 200 km po terminie". */
 function kmText(n) {
-  return n < 0 ? `po terminie ${fmtKm(-n)}` : `za ${fmtKm(n)}`;
+  return n < 0 ? `${fmtKm(-n)} po terminie` : `za ${fmtKm(n)}`;
+}
+
+/** The limit shown as the big line: the one with the higher progress. */
+function mainLimit(r) {
+  const time = r.days_left !== null && r.days_left !== undefined && r.due_date
+    ? { rel: daysText(r.days_left), abs: fmtDate(r.due_date), late: r.days_left < 0, p: r.progress_time ?? -1 }
+    : null;
+  const km = r.km_left !== null && r.km_left !== undefined && r.due_odometer !== null && r.due_odometer !== undefined
+    ? { rel: kmText(r.km_left), abs: fmtKm(r.due_odometer), late: r.km_left < 0, p: r.progress_km ?? -1 }
+    : null;
+  if (time && km) return km.p > time.p ? { main: km, time, km } : { main: time, time, km };
+  return { main: time || km, time, km };
 }
 
 export class VlReminders extends LitElement {
@@ -19,6 +33,8 @@ export class VlReminders extends LitElement {
     vehicle: { attribute: false },
     serviceTypes: { attribute: false },
     narrow: { type: Boolean, reflect: true },
+    wide: { type: Boolean, reflect: true },
+    openId: {},
     _openId: { state: true },
     _confirmDelete: { state: true },
     _busy: { state: true },
@@ -26,37 +42,43 @@ export class VlReminders extends LitElement {
   };
   static styles = [
     sheetStyles,
+    haStyles,
     css`
       :host { display: block; }
-      .banner {
-        display: flex; flex-direction: column; gap: 8px; margin: 12px; padding: 12px 16px; border-radius: 12px;
-        background: var(--warning-color, #f4a100); color: #000;
+      .col { display: flex; flex-direction: column; gap: 12px; }
+      :host([wide]) .col { max-width: 640px; margin: 0 auto; }
+      button.rcard {
+        display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+        padding: 12px 16px 16px; min-height: 48px;
       }
-      .banner button { background: rgba(255, 255, 255, 0.6); border-color: transparent; color: #000; }
-      .card {
-        display: block; width: calc(100% - 24px); margin: 12px; padding: 12px 16px; text-align: left; border-radius: 12px;
-        background: var(--card-background-color, #fff); border: none; box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0, 0, 0, 0.2));
-        min-height: 48px;
-      }
-      .top { display: flex; align-items: center; gap: 16px; }
-      .top ha-icon { color: var(--secondary-text-color); flex: none; }
-      .text { flex: 1; min-width: 0; }
-      .name { font-size: 16px; word-break: break-word; }
-      .sub { font-size: 12px; color: var(--secondary-text-color); word-break: break-word; }
+      .top { display: flex; align-items: center; gap: 12px; }
+      .top .m { flex: 1; min-width: 0; }
+      .top .t1 { font-size: 16px; word-break: break-word; }
+      .top .t2 { font-size: 13px; color: var(--secondary-text-color, #727272); word-break: break-word; }
+      .big { margin-top: 12px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+      .big b { font-size: 22px; font-weight: 500; }
+      .big .abs { font-size: 13px; color: var(--secondary-text-color, #727272); }
       .late { color: var(--error-color, #db4437); }
-      .bar { height: 8px; border-radius: 4px; background: var(--divider-color); margin: 10px 0 6px; overflow: hidden; }
-      .bar i { display: block; height: 100%; background: var(--primary-color); }
-      .bar i.amber { background: var(--warning-color, #f4a100); }
-      .bar i.red { background: var(--error-color, #db4437); }
-      .empty { padding: 32px 16px; text-align: center; color: var(--secondary-text-color); }
+      .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+      .two .lbl { font-size: 12px; color: var(--secondary-text-color, #727272); }
+      .two .v { font-size: 14px; }
+      .bar { margin-top: 12px; }
+      .errtxt { margin-top: 12px; }
       .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
       .stats b { display: block; font-size: 20px; font-weight: 500; }
+      .stats span, .sub { font-size: 13px; color: var(--secondary-text-color, #727272); word-break: break-word; }
+      .lines { display: flex; flex-direction: column; gap: 4px; }
+      .alert .btn { height: 48px; min-height: 48px; }
+      .foot-btns { display: flex; gap: 8px; justify-content: center; }
+      .foot-btns .btn { height: 48px; min-height: 48px; }
+      .conf { text-align: center; }
     `,
   ];
 
   constructor() {
     super();
     this._openId = null;
+    this.openId = null;
     this._confirmDelete = false;
     this._busy = false;
     this._error = "";
@@ -95,63 +117,80 @@ export class VlReminders extends LitElement {
     });
   }
 
-  _lines(r) {
-    const lines = [];
-    if (r.days_left !== null && r.due_date) lines.push([daysText(r.days_left), fmtDate(r.due_date), r.days_left < 0]);
-    if (r.km_left !== null && r.due_odometer !== null) lines.push([kmText(r.km_left), fmtKm(r.due_odometer), r.km_left < 0]);
-    return lines.map(
-      ([rel, abs, late]) => html`<div class="sub ${late ? "late" : ""}">${rel} · ${abs}</div>`,
-    );
+  updated(changed) {
+    if (changed.has("openId") && this.openId) {
+      const hit = this.vehicle?.reminders?.find((r) => r.id === this.openId);
+      if (hit) this._show(hit.id);
+      this._emit("reminder-opened");
+    }
   }
 
   _card(r) {
     const type = this.serviceTypes?.[r.service_type];
-    return html`<button class="card" @click=${() => this._show(r.id)}>
+    const st = r.error ? { key: "err", label: "Błąd" } : reminderStatus(r.progress);
+    const { main, time, km } = mainLimit(r);
+    return html`<button class="card rcard" @click=${() => this._show(r.id)}>
       <div class="top">
-        <ha-icon icon=${type?.icon || "mdi:wrench"}></ha-icon>
-        <div class="text">
-          <div class="name">${r.text}</div>
-          ${r.extra_text ? html`<div class="sub">${r.extra_text}</div>` : nothing}
+        <div class="badge ${st.key ? `b-${st.key}` : "b-service"}"><ha-icon icon=${type?.icon || "mdi:wrench"}></ha-icon></div>
+        <div class="m">
+          <div class="t1">${r.text}</div>
+          ${r.extra_text ? html`<div class="t2">${r.extra_text}</div>` : nothing}
         </div>
+        ${st.key && !r.error ? html`<span class="chip c-${st.key}">${st.label}</span>` : nothing}
       </div>
-      ${r.progress === null
+      ${r.error
+        ? html`<div class="error errtxt">Nie można policzyć terminu</div>`
+        : main
+          ? html`<div class="big"><b class=${main.late ? "late" : ""}>${main.rel}</b><span class="abs">${main.abs}</span></div>`
+          : nothing}
+      ${!r.error && time && km
+        ? html`<div class="two">
+            <div><div class="lbl">Czas</div><div class="v ${time.late ? "late" : ""}">${time.rel} · ${time.abs}</div></div>
+            <div><div class="lbl">Przebieg</div><div class="v ${km.late ? "late" : ""}">${km.rel} · ${km.abs}</div></div>
+          </div>`
+        : nothing}
+      ${r.progress === null || r.progress === undefined
         ? nothing
         : html`<div class="bar" role="progressbar" aria-valuenow=${Math.round(r.progress)} aria-valuemin="0" aria-valuemax="100">
-            <i class=${barClass(r.progress)} style="width: ${Math.min(100, r.progress)}%"></i>
+            <i class=${st.key} style="width: ${Math.max(0, Math.min(100, r.progress))}%"></i>
           </div>`}
-      ${this._lines(r)}
     </button>`;
   }
 
   _detail(r) {
     const close = () => (this._openId = null);
+    const { time, km } = mainLimit(r);
+    const lines = [time, km].filter(Boolean);
     return html`<div class="overlay" @click=${close}>
       <div class="sheet" role="dialog" aria-label=${r.text} @click=${(e) => e.stopPropagation()}>
         <header>
+          <button class="ib" aria-label="Zamknij" @click=${close}><ha-icon icon="mdi:close"></ha-icon></button>
           <h2>${r.text}</h2>
-          <button class="close" aria-label="Zamknij" @click=${close}>✕</button>
         </header>
         <div class="body">
           ${r.extra_text ? html`<div class="sub">${r.extra_text}</div>` : nothing}
+          ${r.error ? html`<div class="error">Nie można policzyć terminu</div>` : nothing}
           <div class="stats">
-            <div><b>${pct(r.progress_time)}</b><span class="sub">czas</span></div>
-            <div><b>${pct(r.progress_km)}</b><span class="sub">przebieg</span></div>
-            <div><b>${pct(r.progress_forecast)}</b><span class="sub">prognoza</span></div>
+            <div><b>${pct(r.progress_time)}</b><span>czas</span></div>
+            <div><b>${pct(r.progress_km)}</b><span>przebieg</span></div>
+            <div><b>${pct(r.progress_forecast)}</b><span>prognoza</span></div>
           </div>
-          ${this._lines(r)}
+          <div class="lines">
+            ${lines.map((l) => html`<div class="${l.late ? "late" : ""}">${l.rel} · ${l.abs}</div>`)}
+          </div>
         </div>
         <footer>
           ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
           ${this._confirmDelete
-            ? html`<div>Na pewno usunąć to przypomnienie?</div>
-                <div class="row">
-                  <button @click=${() => (this._confirmDelete = false)}>Anuluj</button>
-                  <button class="danger solid" ?disabled=${this._busy} @click=${() => this._call({ type: "vehicle_log/reminder/delete", reminder_id: r.id })}>Usuń</button>
+            ? html`<div class="conf">Na pewno usunąć to przypomnienie?</div>
+                <div class="foot-btns">
+                  <button class="btn text" @click=${() => (this._confirmDelete = false)}>Anuluj</button>
+                  <button class="btn fill danger" ?disabled=${this._busy} @click=${() => this._call({ type: "vehicle_log/reminder/delete", reminder_id: r.id })}>Usuń</button>
                 </div>`
-            : html`<button class="primary" ?disabled=${this._busy} @click=${() => this._done(r)}>Wykonane</button>
-                <div class="row">
-                  <button @click=${() => { close(); this._emit("edit-reminder", r); }}>Edytuj</button>
-                  <button class="danger" @click=${() => (this._confirmDelete = true)}>Usuń</button>
+            : html`<button class="btn fill wide" ?disabled=${this._busy} @click=${() => this._done(r)}>Wykonane</button>
+                <div class="foot-btns">
+                  <button class="btn text" @click=${() => { close(); this._emit("edit-reminder", r); }}>Edytuj</button>
+                  <button class="btn text danger" @click=${() => (this._confirmDelete = true)}>Usuń</button>
                 </div>`}
         </footer>
       </div>
@@ -163,16 +202,18 @@ export class VlReminders extends LitElement {
     if (!v) return nothing;
     const open = v.reminders.find((r) => r.id === this._openId);
     const od = v.odometer_update;
-    return html`${od?.is_due
-        ? html`<div class="banner" role="status">
-            Zaktualizuj przebieg — ostatni wpis ${od.days_since} dni temu
-            <button @click=${() => this._emit("add-odometer")}>Aktualizuj przebieg</button>
-          </div>`
-        : nothing}
-      ${v.reminders.length
-        ? v.reminders.map((r) => this._card(r))
-        : html`<div class="empty">Brak przypomnień. Użyj przycisku +, aby dodać pierwsze.</div>`}
-      <div style="height: 88px"></div>
+    return html`<div class="col">
+        ${od?.is_due
+          ? html`<div class="alert" role="status">
+              <ha-icon icon="mdi:alert-outline"></ha-icon>
+              <span class="t">Brak odczytu przebiegu od ${od.days_since} ${daysUnit(od.days_since)}</span>
+              <button class="btn text" @click=${() => this._emit("add-odometer")}>Aktualizuj</button>
+            </div>`
+          : nothing}
+        ${v.reminders.length
+          ? v.reminders.map((r) => this._card(r))
+          : html`<div class="empty">Brak przypomnień. Użyj przycisku Przypomnienie, aby dodać pierwsze.</div>`}
+      </div>
       ${open ? this._detail(open) : nothing}`;
   }
 }
