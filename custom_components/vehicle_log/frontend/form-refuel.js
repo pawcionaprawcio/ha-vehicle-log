@@ -186,6 +186,8 @@ export class VlRefuelForm extends VlForm {
     const f = this._f;
     const types = this._fuelOptions();
     if (this._ownFuels.length) {
+      // a single fuel is preselected in _init(); nothing to choose
+      if (types.length === 1) return nothing;
       return html`<div class="seg" role="radiogroup" aria-label=${tr("fuel_type")} @keydown=${(e) => this._segKey(e, types)}>
         ${types.map((t, i) => {
           const on = f.fuel === t;
