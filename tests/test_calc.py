@@ -586,3 +586,45 @@ def test_lpg_mode_consumption_works_without_baseline():
     ], TODAY)
     assert v["status"] == "no_baseline"
     assert v["lpg_l_per_100km"] == pytest.approx(10.0)
+
+
+def _view_of(vehicle, entries):
+    data = {
+        "vehicles": [vehicle], "reminders": [], "settings": {},
+        "entries": [{**e, "id": str(i), "vehicle_id": vehicle["id"]} for i, e in enumerate(entries)],
+    }
+    return build_view(data, TODAY)["vehicles"][0]
+
+
+def test_view_lpg_mode_for_car_bought_with_lpg():
+    v = _view_of(CAR, [
+        lpg(50100, 40, 120), pb(50300, 4, 24, full=False), lpg(50600, 50, 150),
+    ])
+    assert v["lpg"] is None
+    assert v["lpg_mode"]["lpg_mode_km"] == 500
+    assert v["lpg_mode"]["lpg_l_per_100km"] == pytest.approx(10.0)
+    assert v["lpg_mode"]["petrol_on_lpg_l_per_100km"] == pytest.approx(0.8)
+
+
+def test_view_lpg_mode_pending_when_lpg_fuel_but_no_refuels():
+    v = _view_of(CAR, [])
+    assert v["lpg_mode"] == {"lpg_l_per_100km": None, "petrol_on_lpg_l_per_100km": None, "lpg_mode_km": 0}
+
+
+def test_view_lpg_mode_counts_only_after_install():
+    v = _view_of(CAR, [
+        lpg(99000, 40, 120), lpg(99600, 80, 240),
+        svc("lpg_install", 100000), lpg(100100, 40, 120), lpg(100600, 50, 150),
+    ])
+    assert v["lpg_mode"]["lpg_mode_km"] == 500
+    assert v["lpg_mode"]["lpg_l_per_100km"] == pytest.approx(10.0)
+
+
+def test_view_no_lpg_mode_for_petrol_car():
+    v = _view_of({**CAR, "fuel_types": ["Pb95"]}, [pb(1000, 40, 240), pb(1500, 40, 240)])
+    assert v["lpg_mode"] is None
+
+
+def test_view_lpg_mode_for_legacy_car_with_lpg_refuels():
+    v = _view_of({**CAR, "fuel_types": []}, [lpg(100, 40, 120), lpg(600, 50, 150)])
+    assert v["lpg_mode"]["lpg_l_per_100km"] == pytest.approx(10.0)

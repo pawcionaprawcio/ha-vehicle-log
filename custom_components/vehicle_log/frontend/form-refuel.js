@@ -70,13 +70,11 @@ export class VlRefuelForm extends VlForm {
       date: e.date || todayIso(),
       time: e.time || nowTime(),
       tax_pct: toField(e.tax_pct),
-      discount_pct: toField(e.discount_pct),
-      discount_amount: toField(e.discount_amount),
       comment: e.comment || "",
       petrol_price: toField(e.petrol_price),
       petrol_only: Boolean(e.petrol_only),
     };
-    this._showTax = Boolean(e.tax_pct || e.discount_pct || e.discount_amount);
+    this._showTax = Boolean(e.tax_pct);
     this._showComment = Boolean(e.comment);
   }
 
@@ -116,7 +114,7 @@ export class VlRefuelForm extends VlForm {
     const f = this._f;
     const odoErr = intError(f.odometer);
     if (odoErr) throw new Error(odoErr);
-    for (const k of [...AMOUNTS, "odometer", "tax_pct", "discount_pct", "discount_amount", "petrol_price"]) {
+    for (const k of [...AMOUNTS, "odometer", "tax_pct", "petrol_price"]) {
       if (badNum(f[k])) throw new Error(tr("bad_number"));
     }
     const drop = this._derivedKey();
@@ -137,8 +135,7 @@ export class VlRefuelForm extends VlForm {
       date: f.date,
       time: f.time || null,
       tax_pct: f.tax_pct,
-      discount_pct: f.discount_pct,
-      discount_amount: f.discount_amount,
+      // no discount fields here: a discount stored on an older refuel is kept via ...this.entry
       comment: f.comment,
       // the store keeps petrol_price only on LPG refuels and petrol_only only on the others
       petrol_price: fuel === LPG ? f.petrol_price : "",
@@ -233,13 +230,9 @@ export class VlRefuelForm extends VlForm {
       </div>
       ${this.expander(
         this._showTax,
-        tr("tax_or_discount"),
+        tr("tax"),
         () => (this._showTax = true),
-        html`${this.num(tr("tax"), f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
-          <div class="row">
-            ${this.num(tr("discount"), f.discount_pct, (v) => this._set("discount_pct", v), "", "%", tr("discount_pct"))}
-            ${this.num(tr("discount"), f.discount_amount, (v) => this._set("discount_amount", v), "", "zł", tr("discount_amount"))}
-          </div>`,
+        this.num(tr("tax"), f.tax_pct, (v) => this._set("tax_pct", v), "", "%"),
       )}
       ${this.expander(
         this._showComment,

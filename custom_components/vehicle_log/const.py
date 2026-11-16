@@ -71,4 +71,4 @@ DEFAULT_SETTINGS: dict = {
     "odometer_reminder_days": 120,
 }
 
-VERSION = "0.4.1"
+VERSION = "0.4.2"

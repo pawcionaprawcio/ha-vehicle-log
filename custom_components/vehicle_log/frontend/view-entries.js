@@ -135,7 +135,6 @@ export class VlEntries extends LitElement {
   _vehicleCard(v, withNext) {
     const c = v.consumption;
     const pb = this._petrolL100(v);
-    const lc = v.lpg_consumption;
     const petrolSegs = (v.segments || []).filter((s) => s.fuel !== "lpg");
     const lastSeg = petrolSegs.length ? petrolSegs[petrolSegs.length - 1] : null;
     const showForecast = v.forecast_odometer !== null && v.forecast_odometer !== undefined && v.forecast_odometer !== v.odometer;
@@ -162,7 +161,7 @@ export class VlEntries extends LitElement {
             ${stale ? html`<div class="stale">${t("no_reading_for", { n: v.odometer_update.days_since })}</div>` : nothing}
             <div class="tiles">
               <div class="tile">
-                <div class="k">${v.lpg || lc ? t("petrol_consumption") : t("avg_consumption")}</div>
+                <div class="k">${v.lpg || v.lpg_mode ? t("petrol_consumption") : t("avg_consumption")}</div>
                 <div class="v">${pb ? this._l100(pb.value) : "—"}</div>
                 <div class="s">${c ? `${fmtMoney(c.avg_cost_per_100km)} / 100 km` : pb ? `(${t("entered")})` : t("consumption_hint")}</div>
               </div>
@@ -171,14 +170,7 @@ export class VlEntries extends LitElement {
                 <div class="v">${c ? this._l100(c.last_l_per_100km) : "—"}</div>
                 ${c && lastSeg ? html`<div class="s">${t("refuel_on", { date: fmtShortDate(lastSeg.to_date) })}</div>` : nothing}
               </div>
-              ${v.lpg ? this._lpgModeTile(v.lpg) : nothing}
-              ${lc && !v.lpg
-                ? html`<div class="tile">
-                    <div class="k">${t("lpg_consumption")}</div>
-                    <div class="v">~${this._l100(lc.avg_l_per_100km)}</div>
-                    <div class="s">${t("approximate")}</div>
-                  </div>`
-                : nothing}
+              ${v.lpg_mode ? this._lpgModeTile(v.lpg_mode) : nothing}
             </div>
             ${this._lpgSection(v)}`}
       ${next ? this._nextRow(next) : nothing}

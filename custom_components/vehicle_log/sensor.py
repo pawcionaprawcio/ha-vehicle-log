@@ -71,10 +71,15 @@ class ConsumptionSensor(VehicleLogEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         s = self._summary or {}
-        return {
+        attrs = {
             "avg_l_per_100km": s.get("avg_l_per_100km"),
             "avg_cost_per_100km": s.get("avg_cost_per_100km"),
         }
+        mode = (self._vehicle or {}).get("lpg_mode")
+        if mode is not None:
+            attrs["lpg_l_per_100km"] = mode["lpg_l_per_100km"]
+            attrs["petrol_on_lpg_l_per_100km"] = mode["petrol_on_lpg_l_per_100km"]
+        return attrs
 
 
 class LpgSavingsSensor(VehicleLogEntity, SensorEntity):

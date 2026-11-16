@@ -294,14 +294,18 @@ def _petrol_baseline(
     return None, None, km
 
 
-def lpg_mode_consumption(refuels: list[dict], install_odo: int) -> dict:
+def lpg_mode_consumption(refuels: list[dict], install_odo: int | None) -> dict:
     """Litres of LPG and of petrol per 100 km while driving on LPG (approximate).
 
-    Spans the first to the last full LPG refuel after the install. Stretches the
+    Spans the first to the last full LPG refuel after the install (or over all
+    refuels when there is no install point, e.g. a car bought with LPG). Stretches the
     driver marked as petrol only (`petrol_only`) are left out, km and litres.
     """
     out = {"lpg_l_per_100km": None, "petrol_on_lpg_l_per_100km": None, "lpg_mode_km": 0}
-    after = [r for r in _sorted_refuels(refuels) if r["odometer"] > install_odo]
+    after = [
+        r for r in _sorted_refuels(refuels)
+        if install_odo is None or r["odometer"] > install_odo
+    ]
     full_lpg = [r for r in after if _is_lpg(r) and r.get("full_tank")]
     if len(full_lpg) < 2:
         return out
@@ -508,6 +512,11 @@ def _vehicle_view(vehicle: dict, data: dict, today: date, settings: dict) -> dic
     point = lpg_install_point(entries)
     petrol = consumption_segments(refuels, point["odometer"] if point else None)
     lpg_segs = lpg_segments(refuels)
+    has_lpg = (
+        LPG in (vehicle.get("fuel_types") or [])
+        or any(_is_lpg(r) for r in refuels)
+        or bool(_lpg_entries(entries, ("lpg_install",)))
+    )
     reminders = [
         _reminder_view(r, entries, today, settings["forecast_enabled"])
         for r in data["reminders"]
@@ -524,6 +533,10 @@ def _vehicle_view(vehicle: dict, data: dict, today: date, settings: dict) -> dic
         "consumption": consumption_summary(petrol),
         "lpg_consumption": consumption_summary(lpg_segs),
         "lpg": lpg_view(vehicle, entries, today),
+        "lpg_mode": (
+            lpg_mode_consumption(refuels, point["odometer"] if point else None)
+            if has_lpg else None
+        ),
         "segments": sorted(petrol + lpg_segs, key=lambda s: s["to_odometer"]),
         "odometer_update": odometer_update_status(entries, today, settings),
         "entries": sorted(
@@ -550,7 +563,7 @@ def build_view(data: dict, today: date) -> dict:
             vehicles.append(
                 {**vehicle, "error": True, "entries": [], "reminders": [], "segments": [],
                  "odometer": None, "forecast_odometer": None, "consumption": None,
-                 "lpg": None, "lpg_consumption": None,
+                 "lpg": None, "lpg_consumption": None, "lpg_mode": None,
                  "odometer_update": {"last_date": None, "days_since": None,
                                      "is_due": False}}
             )
