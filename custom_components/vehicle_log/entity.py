@@ -26,6 +26,17 @@ VEHICLE_KEYS = ("odometer", "forecast_odometer", "consumption", "odometer_update
 REMINDER_KEYS = ("remaining_km", "remaining_days", "progress", "due")
 
 
+def lpg_keys(vehicle: dict) -> list[str]:
+    """Keys of the LPG sensors this vehicle should have right now."""
+    lpg = vehicle.get("lpg") or {}
+    if lpg.get("status") != "ok":
+        return []
+    keys = ["lpg_savings"]
+    if (lpg.get("lpg_cost") or 0) > 0:
+        keys.append("lpg_payback")
+    return keys
+
+
 class VehicleLogCoordinator(DataUpdateCoordinator[dict]):
     """Holds one build_view result; there is no polling.
 
@@ -72,7 +83,7 @@ class VehicleLogCoordinator(DataUpdateCoordinator[dict]):
         names: dict[str, str] = {}
         for v in self.data["vehicles"]:
             names[v["id"]] = v.get("name") or "?"
-            wanted.update(f"{v['id']}_{k}" for k in VEHICLE_KEYS)
+            wanted.update(f"{v['id']}_{k}" for k in (*VEHICLE_KEYS, *lpg_keys(v)))
             for r in v["reminders"]:
                 wanted.update(f"{r['id']}_{k}" for k in REMINDER_KEYS)
 
@@ -176,14 +187,17 @@ def async_setup_dynamic(
     """Add entities now and for every vehicle/reminder that appears later.
 
     ``factory(coordinator, view)`` returns the entities for the whole view;
-    those whose unique id is already known are skipped.
+    those whose unique id is already known are skipped. Ids the factory no
+    longer returns are forgotten, so an entity that went away can come back.
     """
     known: set[str] = set()
 
     @callback
     def _add() -> None:
         new: list[Entity] = []
-        for ent in factory(coordinator, coordinator.data):
+        current = factory(coordinator, coordinator.data)
+        known.intersection_update(ent.unique_id for ent in current)
+        for ent in current:
             if ent.unique_id not in known:
                 known.add(ent.unique_id)
                 new.append(ent)

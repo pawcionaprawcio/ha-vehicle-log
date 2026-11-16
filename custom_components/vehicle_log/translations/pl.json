@@ -29,6 +29,12 @@
       },
       "progress": {
         "name": "{reminder} postęp"
+      },
+      "lpg_savings": {
+        "name": "Oszczędność LPG"
+      },
+      "lpg_payback": {
+        "name": "Zwrot instalacji LPG"
       }
     },
     "binary_sensor": {

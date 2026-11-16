@@ -226,3 +226,65 @@ async def test_setup_sweeps_orphaned_entities_and_devices(
     assert ent_reg.async_get_entity_id("sensor", DOMAIN, f"{vid}_odometer") is None
     assert ent_reg.async_get_entity_id("sensor", DOMAIN, f"{rid}_progress") is None
     assert _device(hass, vid) is None
+
+
+async def _lpg_car(hass, ws, install_total=None):
+    view = await ws_call(ws, "vehicle_log/vehicle/save",
+                         vehicle={"name": "Gaz", "fuel_types": ["Pb95"],
+                                  "petrol_l_per_100km": 8})
+    vid = view["vehicles"][0]["id"]
+    await ws_call(ws, "vehicle_log/entry/save", entry={
+        "vehicle_id": vid, "kind": "service", "service_type": "lpg_install",
+        "name": "Montaż", "date": "2026-11-01", "odometer": 100000,
+        "total": install_total,
+    })
+    view = await ws_call(ws, "vehicle_log/entry/save", entry={
+        "vehicle_id": vid, "kind": "refuel", "date": "2026-11-10",
+        "odometer": 100500, "litres": 50, "total": 150, "fuel_type": "LPG",
+        "full_tank": True, "petrol_price": 6,
+    })
+    await hass.async_block_till_done()
+    install = next(e for e in view["vehicles"][0]["entries"]
+                   if e["service_type"] == "lpg_install")
+    return vid, install
+
+
+def _entity_id(hass, unique_id):
+    return er.async_get(hass).async_get_entity_id("sensor", DOMAIN, unique_id)
+
+
+async def test_lpg_sensors_created_with_install(hass, ws):
+    hass.config.currency = "PLN"
+    vid, _ = await _lpg_car(hass, ws, install_total=3000)
+    savings = _state(hass, "sensor", f"{vid}_lpg_savings")
+    assert float(savings.state) == -2910.0
+    assert savings.attributes["unit_of_measurement"] == "PLN"
+    assert savings.attributes["device_class"] == "monetary"
+    assert _state(hass, "sensor", f"{vid}_lpg_payback").state == "3"
+
+
+async def test_lpg_payback_sensor_needs_cost(hass, ws):
+    vid, _ = await _lpg_car(hass, ws)
+    assert float(_state(hass, "sensor", f"{vid}_lpg_savings").state) == 90.0
+    assert _entity_id(hass, f"{vid}_lpg_payback") is None
+
+
+async def test_no_lpg_sensors_without_install(hass, ws):
+    vid = await save_vehicle(ws)
+    await hass.async_block_till_done()
+    assert _entity_id(hass, f"{vid}_lpg_savings") is None
+
+
+async def test_lpg_sensors_follow_install_entry(hass, ws):
+    vid, install = await _lpg_car(hass, ws, install_total=3000)
+    await ws_call(ws, "vehicle_log/entry/delete", entry_id=install["id"])
+    await hass.async_block_till_done()
+    assert _entity_id(hass, f"{vid}_lpg_savings") is None
+    assert _entity_id(hass, f"{vid}_lpg_payback") is None
+    await ws_call(ws, "vehicle_log/entry/save", entry={
+        **{k: install[k] for k in ("vehicle_id", "kind", "service_type", "name",
+                                   "date", "odometer", "total")},
+    })
+    await hass.async_block_till_done()
+    assert float(_state(hass, "sensor", f"{vid}_lpg_savings").state) == -2910.0
+    assert _state(hass, "sensor", f"{vid}_lpg_payback").state == "3"
