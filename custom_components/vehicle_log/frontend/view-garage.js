@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing, fmtDate, fmtKm, errorText, plural } from "./ui.js";
+import { LitElement, html, css, nothing, haStyles, fmtDate, fmtKm, errorText, plural } from "./ui.js";
 
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
@@ -12,43 +12,40 @@ function toBase64(buf) {
 export class VlGarage extends LitElement {
   static properties = {
     hass: { attribute: false },
+    wide: { type: Boolean, reflect: true },
     view: { attribute: false },
     _error: { state: true },
     _msg: { state: true },
     _busy: { state: true },
   };
-  static styles = css`
-    :host { display: block; color: var(--primary-text-color); padding-bottom: 24px; }
-    * { box-sizing: border-box; }
-    h3 { margin: 16px 16px 4px; font-size: 13px; font-weight: 500; color: var(--secondary-text-color); }
-    button, label.check { font: inherit; color: inherit; }
-    .row {
-      display: flex; align-items: center; gap: 16px; width: 100%; min-height: 56px; padding: 6px 16px;
-      background: var(--card-background-color, #fff); border: none; border-bottom: 1px solid var(--divider-color);
-      text-align: left; cursor: pointer;
-    }
-    .row ha-icon { color: var(--secondary-text-color); flex: none; }
-    .main { flex: 1; min-width: 0; }
-    .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sub { font-size: 12px; color: var(--secondary-text-color); }
-    .empty { padding: 24px 16px; text-align: center; color: var(--secondary-text-color); }
-    .btn {
-      min-height: 48px; padding: 0 16px; margin: 12px 16px 0; border-radius: 8px; cursor: pointer;
-      border: 1px solid var(--divider-color); background: transparent;
-    }
-    .btn.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
-    .btn:disabled { opacity: 0.5; }
-    .check { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; font-size: 16px; }
-    input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--primary-color); }
-    .days { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: 48px; }
-    .days input {
-      font: inherit; font-size: 16px; width: 96px; min-height: 48px; padding: 8px 12px; color: var(--primary-text-color);
-      background: var(--card-background-color, #fff); border: 1px solid var(--divider-color); border-radius: 8px;
-    }
-    input[type="file"] { display: none; }
-    .error { color: var(--error-color, #db4437); padding: 8px 16px 0; font-size: 14px; word-break: break-word; }
-    .ok { padding: 8px 16px 0; font-size: 14px; }
-  `;
+  static styles = [
+    haStyles,
+    css`
+      :host { display: block; color: var(--primary-text-color); }
+      .col { display: flex; flex-direction: column; gap: 12px; }
+      :host([wide]) .col { max-width: 640px; margin: 0 auto; }
+      .card-h { padding-bottom: 4px; }
+      .sub { color: var(--secondary-text-color, #727272); }
+      .sub.err { color: var(--error-color, #db4437); }
+      .li .chev { color: var(--secondary-text-color, #727272); flex: none; }
+      .li.add { color: var(--primary-color, #03a9f4); font-weight: 500; }
+      .li.add ha-icon { flex: none; }
+      label.li { cursor: pointer; }
+      label.li.days { cursor: default; }
+      .days input.num {
+        font: inherit; font-size: 16px; width: 72px; min-height: 48px; box-sizing: border-box; padding: 8px 12px;
+        text-align: center; color: var(--primary-text-color); background: transparent;
+        border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3)); border-radius: 8px;
+      }
+      .imp { padding: 8px 16px 12px; }
+      .imp .t2 { font-size: 13px; color: var(--secondary-text-color, #727272); }
+      .imp .act { display: flex; justify-content: flex-end; margin-top: 4px; }
+      .imp .btn { height: 48px; }
+      .imp .error, .imp .ok { margin-top: 8px; }
+      .ok { font-size: 14px; }
+      input[type="file"] { display: none; }
+    `,
+  ];
 
   constructor() {
     super();
@@ -126,53 +123,74 @@ export class VlGarage extends LitElement {
     const vehicles = this.view?.vehicles ?? [];
     const s = this.view?.settings;
     if (!s) return nothing;
-    return html`<h3>Pojazdy</h3>
-      ${vehicles.length
-        ? vehicles.map(
-            (v) => html`<button class="row" @click=${() => this._emit("edit-vehicle", v)}>
-              <ha-icon icon=${v.icon || "mdi:car"}></ha-icon>
-              <div class="main">
-                <div class="name">${v.name}</div>
-                <div class="sub">
-                  ${[
-                    (v.fuel_types || []).join(" + ") || "paliwo: nie wybrano",
-                    v.purchase_date ? `zakup ${fmtDate(v.purchase_date)}` : null,
-                    v.odometer !== null ? fmtKm(v.odometer) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "brak danych"}
-                </div>
+    return html`<div class="col">
+      <div class="card">
+        <div class="card-h">Pojazdy</div>
+        ${vehicles.map(
+          (v) => html`<button class="li" @click=${() => this._emit("edit-vehicle", v)}>
+            <div class="badge b-primary"><ha-icon icon=${v.icon || "mdi:car"}></ha-icon></div>
+            <div class="m">
+              <div class="t1">${v.name}</div>
+              <div class="t2 sub ${v.error ? "err" : ""}">
+                ${v.error
+                  ? "Błąd danych"
+                  : [
+                      (v.fuel_types || []).join(" + ") || "Paliwo nie wybrane",
+                      v.purchase_date ? `zakup ${fmtDate(v.purchase_date)}` : null,
+                      v.odometer !== null && v.odometer !== undefined ? fmtKm(v.odometer) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
               </div>
-            </button>`,
-          )
-        : html`<div class="empty">Brak pojazdów.</div>`}
-      <button class="btn primary" @click=${() => this._emit("add-vehicle")}>Dodaj pojazd</button>
-      <h3>Ustawienia</h3>
-      <label class="check"
-        ><input type="checkbox" .checked=${s.forecast_enabled} ?disabled=${this._busy}
-          @change=${(e) => this._setting({ forecast_enabled: e.target.checked })} />
-        Szacuj przebieg na podstawie dotychczasowej jazdy</label
-      >
-      <label class="check"
-        ><input type="checkbox" .checked=${s.odometer_reminder_enabled} ?disabled=${this._busy}
-          @change=${(e) => this._setting({ odometer_reminder_enabled: e.target.checked })} />
-        Przypominaj o aktualizacji przebiegu</label
-      >
-      ${s.odometer_reminder_enabled
-        ? html`<label class="days"
-            >po
-            <input inputmode="numeric" aria-label="Dni bez odczytu przebiegu" .value=${String(s.odometer_reminder_days)}
-              @change=${(e) => this._saveDays(e)} />
-            dniach bez odczytu</label
-          >`
-        : nothing}
-      <h3>Import</h3>
-      <button class="btn" ?disabled=${this._busy} @click=${(e) => e.target.nextElementSibling.click()}>
-        Import z Car Notes (.xlsx)
-      </button>
-      <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change=${(e) => this._import(e)} />
-      ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
-      ${this._msg ? html`<div class="ok" role="status">${this._msg}</div>` : nothing}`;
+            </div>
+            <ha-icon class="chev" icon="mdi:chevron-right"></ha-icon>
+          </button>`,
+        )}
+        <button class="li add" @click=${() => this._emit("add-vehicle")}>
+          <ha-icon icon="mdi:plus"></ha-icon><span>Dodaj pojazd</span>
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-h">Ustawienia</div>
+        <label class="li">
+          <div class="m">
+            <div class="t1">Szacuj przebieg</div>
+            <div class="hint">Na podstawie dotychczasowej jazdy</div>
+          </div>
+          <input type="checkbox" class="switch" .checked=${s.forecast_enabled} ?disabled=${this._busy}
+            @change=${(e) => this._setting({ forecast_enabled: e.target.checked })} />
+        </label>
+        <label class="li">
+          <div class="m">
+            <div class="t1">Przypominaj o przebiegu</div>
+            <div class="hint">Gdy brak odczytu przez podaną liczbę dni</div>
+          </div>
+          <input type="checkbox" class="switch" .checked=${s.odometer_reminder_enabled} ?disabled=${this._busy}
+            @change=${(e) => this._setting({ odometer_reminder_enabled: e.target.checked })} />
+        </label>
+        ${s.odometer_reminder_enabled
+          ? html`<label class="li days">
+              <div class="m"><div class="t1">Dni bez odczytu</div></div>
+              <input class="num" inputmode="numeric" aria-label="Dni bez odczytu przebiegu"
+                .value=${String(s.odometer_reminder_days)} @change=${(e) => this._saveDays(e)} />
+            </label>`
+          : nothing}
+      </div>
+      <div class="card">
+        <div class="card-h">Import</div>
+        <div class="imp">
+          <div class="t2">Wczytaj eksport .xlsx z aplikacji Car Notes. Istniejące wpisy nie zostaną zdublowane.</div>
+          <div class="act">
+            <button class="btn text" ?disabled=${this._busy} @click=${(e) => e.currentTarget.parentElement.nextElementSibling.click()}>
+              <ha-icon icon="mdi:upload"></ha-icon>Wybierz plik
+            </button>
+          </div>
+          <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change=${(e) => this._import(e)} />
+          ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
+          ${this._msg ? html`<div class="ok" role="status">${this._msg}</div>` : nothing}
+        </div>
+      </div>
+    </div>`;
   }
 }
 customElements.define("vl-garage", VlGarage);
