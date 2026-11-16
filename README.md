@@ -16,7 +16,7 @@ The sample data below is made up (an Ursus C-330 tractor, an Izera and a Polonez
 
 ## Features
 
-- Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels.
+- Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels, and hides the choice when the vehicle has just one.
 - Service entries (oil, filters, brakes, tyres, ...), refuels and odometer updates.
 - Fuel consumption (L/100 km) calculated from full-tank refuels, per fuel.
 - LPG savings: how much driving on LPG saves compared with petrol, and when the installation pays for itself (see below).
