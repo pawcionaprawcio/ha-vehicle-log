@@ -263,6 +263,12 @@ async def test_lpg_sensors_created_with_install(hass, ws):
     assert _state(hass, "sensor", f"{vid}_lpg_payback").state == "3"
 
 
+async def test_lpg_savings_sensor_has_lpg_mode_consumption(hass, ws):
+    vid, _ = await _lpg_car(hass, ws, install_total=3000)
+    attrs = _state(hass, "sensor", f"{vid}_lpg_savings").attributes
+    assert "lpg_l_per_100km" in attrs and "petrol_on_lpg_l_per_100km" in attrs
+
+
 async def test_lpg_payback_sensor_needs_cost(hass, ws):
     vid, _ = await _lpg_car(hass, ws)
     assert float(_state(hass, "sensor", f"{vid}_lpg_savings").state) == 90.0

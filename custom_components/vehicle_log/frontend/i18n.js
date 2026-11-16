@@ -215,6 +215,13 @@ const S = {
   measured_km: [(p) => `zmierzone, ${p.km}`, (p) => `measured, ${p.km}`],
   lpg_consumption: ["Spalanie LPG", "LPG consumption"],
   approximate: ["orientacyjnie", "approximate"],
+  lpg_mode: ["Jazda na LPG", "Driving on LPG"],
+  lpg_mode_petrol: [(p) => `+ ${p.l} l Pb · orientacyjnie`, (p) => `+ ${p.l} l petrol · approximate`],
+  lpg_mode_pending: ["po kilku tankowaniach LPG do pełna", "after a few full LPG refuels"],
+  lpg_mode_line: [
+    (p) => `Na LPG: ~${p.lpg} l LPG + ${p.pb} l Pb / 100 km (orientacyjnie)`,
+    (p) => `On LPG: ~${p.lpg} l LPG + ${p.pb} l petrol / 100 km (approximate)`,
+  ],
   lpg_since: [(p) => `LPG · od ${p.date}`, (p) => `LPG · since ${p.date}`],
   lpg_saved: [(p) => `Dzięki jeździe na LPG zaoszczędziłeś ${p.amount}`, (p) => `Driving on LPG has saved you ${p.amount}`],
   lpg_progress: [(p) => `${p.pct}% z ${p.cost} kosztów LPG`, (p) => `${p.pct}% of ${p.cost} LPG costs`],
