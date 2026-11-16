@@ -715,3 +715,44 @@ async def test_failed_entry_save_rolls_back_everything(hass, monkeypatch):
     assert store.data == before
     assert store._dropped == {"k"}
     assert saves == []
+
+
+async def test_vehicle_keeps_up_to_two_fuel_types(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car", "fuel_types": ["Pb95", "LPG"]})
+    assert v["fuel_types"] == ["Pb95", "LPG"]
+    assert store.data["vehicles"][0]["fuel_types"] == ["Pb95", "LPG"]
+
+
+async def test_vehicle_without_fuel_types_gets_empty_list(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    assert v["fuel_types"] == []
+
+
+@pytest.mark.parametrize("bad", [
+    ["Pb95", "LPG", "ON"], ["Pb95", "Pb95"], ["Wodór"], "Pb95", [None], [95],
+])
+async def test_vehicle_rejects_bad_fuel_types(hass, bad):
+    store = await _store(hass)
+    with pytest.raises(ValueError):
+        await store.async_save_vehicle({"name": "Car", "fuel_types": bad})
+    assert store.data["vehicles"] == []
+
+
+async def test_bad_stored_fuel_types_are_reset_and_vehicle_kept(hass, hass_storage):
+    _seed(hass_storage, vehicles=[
+        {"id": "v1", "name": "A", "purchase_date": None, "icon": None, "fuel_types": ["X", "Y", "Z"]},
+        {"id": "v2", "name": "B", "purchase_date": None, "icon": None},
+    ])
+    store = await _store(hass)
+    assert [v["id"] for v in store.data["vehicles"]] == ["v1", "v2"]
+    assert store.data["vehicles"][0]["fuel_types"] == []
+    assert store.data["vehicles"][1]["fuel_types"] == []
+    assert store.data["quarantine"] == []
+
+
+async def test_import_creates_vehicles_without_fuel_types(hass):
+    store = await _store(hass)
+    await store.async_import(parse_car_notes_xlsx(make_xlsx(TWO_VEHICLES)))
+    assert all(v["fuel_types"] == [] for v in store.data["vehicles"])
