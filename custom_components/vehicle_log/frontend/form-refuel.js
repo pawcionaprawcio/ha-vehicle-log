@@ -1,4 +1,4 @@
-import { VlForm, html, nothing, refuelDerivedKey, parseNum, badNum, intError, toField, fmtDec, todayIso, nowTime, storage } from "./ui.js";
+import { VlForm, html, css, nothing, refuelDerivedKey, parseNum, badNum, intError, toField, fmtDec, fmtInt, todayIso, nowTime, storage } from "./ui.js";
 import { LIMITS } from "./ui.js";
 
 const OTHER = "__other";
@@ -9,7 +9,24 @@ export class VlRefuelForm extends VlForm {
     ...VlForm.properties,
     _f: { state: true },
     _showTax: { state: true },
+    _showComment: { state: true },
   };
+  static styles = [
+    VlForm.styles,
+    css`
+      .seg { display: flex; border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.5)); border-radius: 24px; overflow: hidden; }
+      .seg button {
+        flex: 1; min-width: 0; height: 48px; min-height: 48px; padding: 0 8px; border: 0; border-radius: 0;
+        display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; background: transparent;
+        --mdc-icon-size: 18px;
+      }
+      .seg button + button { border-left: 1px solid var(--divider-color, rgba(127, 127, 127, 0.5)); }
+      .seg button[aria-checked="true"] {
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
+        color: var(--primary-color, #03a9f4);
+      }
+    `,
+  ];
 
   willUpdate(changed) {
     if (changed.has("entry") || !this._f) this._init();
@@ -55,10 +72,11 @@ export class VlRefuelForm extends VlForm {
       comment: e.comment || "",
     };
     this._showTax = Boolean(e.tax_pct || e.discount_pct || e.discount_amount);
+    this._showComment = Boolean(e.comment);
   }
 
   get heading() {
-    return this.editing ? "Tankowanie" : "Dodaj tankowanie";
+    return "Tankowanie";
   }
 
   _set(key, value) {
@@ -122,46 +140,70 @@ export class VlRefuelForm extends VlForm {
     return entry;
   }
 
-  _amount(label, key) {
+  _amount(label, key, suffix) {
     const computed = this._f[key] === "" ? this._computed(key) : "";
-    return this.num(label, this._f[key], (v) => this._set(key, v), computed);
+    return this.num(label, this._f[key], (v) => this._set(key, v), computed, suffix);
   }
 
-  renderBody() {
+  _renderFuel() {
     const f = this._f;
     const types = this._fuelOptions();
-    const ownOnly = this._ownFuels.length > 0;
-    return html`<div class="body">
-      ${this._amount("Koszt (zł)", "total")} ${this._amount("Cena za litr (zł)", "price_per_litre")}
-      ${this._amount("Litry", "litres")}
-      <div class="hint">Wpisz dowolne dwie wartości, trzecia zostanie wyliczona.</div>
-      <label
+    if (this._ownFuels.length) {
+      return html`<div class="seg" role="radiogroup" aria-label="Rodzaj paliwa">
+        ${types.map((t) => {
+          const on = f.fuel === t;
+          return html`<button role="radio" aria-checked=${on ? "true" : "false"} @click=${() => this._set("fuel", t)}>
+            ${on ? html`<ha-icon icon="mdi:check"></ha-icon>` : nothing}${t}
+          </button>`;
+        })}
+      </div>`;
+    }
+    return html`<label
         >Rodzaj paliwa
         <select @change=${(e) => this._set("fuel", e.target.value)}>
           ${types.map((t) => html`<option value=${t} ?selected=${f.fuel === t}>${t}</option>`)}
-          ${ownOnly ? nothing : html`<option value=${OTHER} ?selected=${f.fuel === OTHER}>inny…</option>`}
+          <option value=${OTHER} ?selected=${f.fuel === OTHER}>inny…</option>
         </select>
       </label>
       ${f.fuel === OTHER
         ? this.field("Inne paliwo", f.fuel_other, (v) => this._set("fuel_other", v), { maxlength: 30 })
-        : nothing}
-      <label class="check">
-        <input type="checkbox" .checked=${f.full_tank} @change=${(e) => this._set("full_tank", e.target.checked)} />
-        Do pełna
-      </label>
-      ${this.field("Przebieg (km)", f.odometer, (v) => this._set("odometer", v), { inputmode: "numeric" })}
+        : nothing}`;
+  }
+
+  renderBody() {
+    const f = this._f;
+    return html`<div class="body">
+      ${this._renderFuel()} ${this._amount("Kwota", "total", "zł")}
+      <div class="row">
+        ${this._amount("Cena za litr", "price_per_litre", "zł/l")} ${this._amount("Litry", "litres", "l")}
+      </div>
+      <div class="hint">Wpisz dwie wartości, trzecia zostanie wyliczona.</div>
+      ${this.field("Przebieg", f.odometer, (v) => this._set("odometer", v), {
+        inputmode: "numeric",
+        suffix: "km",
+        placeholder: !this.editing && this.vehicle?.odometer != null ? `ostatnio ${fmtInt(this.vehicle.odometer)}` : "",
+      })}
+      ${this.switchRow("Do pełna", f.full_tank, (v) => this._set("full_tank", v), "Potrzebne do liczenia spalania")}
       <div class="row">
         ${this.field("Data", f.date, (v) => this._set("date", v), { type: "date" })}
         ${this.field("Godzina", f.time, (v) => this._set("time", v), { type: "time" })}
       </div>
-      ${this._showTax
-        ? html`${this.num("Podatek (%)", f.tax_pct, (v) => this._set("tax_pct", v))}
-            <div class="row">
-              ${this.num("Rabat (%)", f.discount_pct, (v) => this._set("discount_pct", v))}
-              ${this.num("Rabat (zł)", f.discount_amount, (v) => this._set("discount_amount", v))}
-            </div>`
-        : html`<button class="link" @click=${() => (this._showTax = true)}>Dodaj podatek lub rabat</button>`}
-      ${this.textArea("Komentarz", f.comment, LIMITS.comment, (v) => this._set("comment", v))}
+      ${this.expander(
+        this._showTax,
+        "Podatek lub rabat",
+        () => (this._showTax = true),
+        html`${this.num("Podatek", f.tax_pct, (v) => this._set("tax_pct", v), "", "%")}
+          <div class="row">
+            ${this.num("Rabat", f.discount_pct, (v) => this._set("discount_pct", v), "", "%")}
+            ${this.num("Rabat", f.discount_amount, (v) => this._set("discount_amount", v), "", "zł")}
+          </div>`,
+      )}
+      ${this.expander(
+        this._showComment,
+        "Komentarz",
+        () => (this._showComment = true),
+        this.textArea("Komentarz", f.comment, LIMITS.comment, (v) => this._set("comment", v)),
+      )}
     </div>`;
   }
 }
