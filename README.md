@@ -59,7 +59,7 @@ For a car converted to LPG:
 3. On LPG refuels you can enter the current petrol price; when it is empty, the last known petrol price is used.
 4. On a petrol refuel after the installation, switch on "only petrol since the last petrol refuel" when that is true, so the refuel counts towards the measured petrol consumption.
 
-The vehicle card in the entries tab shows the total saved and, when the LPG costs are known, the payback progress, the amount still to pay back and a forecast odometer and month. LPG consumption is approximate, because the engine also burns some petrol when running on LPG.
+The vehicle card in the entries tab shows the total saved and, when the LPG costs are known, the payback progress, the amount still to pay back and a forecast odometer and month. Next to the petrol consumption, a "Driving on LPG" tile shows litres of LPG plus litres of petrol per 100 km while running on LPG (the engine starts and warms up on petrol). It spans the first to the last full LPG refuel after the installation, leaves out stretches marked as petrol only, and appears after at least 500 km. It is approximate, because the tank levels between refuels are not known.
 
 ## Settings
 
@@ -81,7 +81,7 @@ Per vehicle (the vehicle is a device; entity ids follow the device name, e.g. `s
 | Forecast odometer | sensor, km | Estimated current mileage. |
 | Fuel consumption | sensor, L/100km | Last full-tank segment; attributes `avg_l_per_100km`, `avg_cost_per_100km`. |
 | Odometer update due | binary sensor (problem) | On when an odometer reading is overdue. |
-| LPG savings | sensor, currency | Fuel savings minus LPG installation and service costs. Only for vehicles with an LPG installation entry. |
+| LPG savings | sensor, currency | Fuel savings minus LPG installation and service costs; attributes include `lpg_l_per_100km` and `petrol_on_lpg_l_per_100km` (consumption while driving on LPG). Only for vehicles with an LPG installation entry. |
 | LPG payback | sensor, % | How much of the LPG costs the savings have paid back; attributes `remaining`, `paid_back`, `payback_odometer`, `payback_month`. Only when the LPG costs are known. |
 
 Per reminder:

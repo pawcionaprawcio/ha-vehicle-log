@@ -102,6 +102,7 @@ class LpgSavingsSensor(VehicleLogEntity, SensorEntity):
         return {k: lpg.get(k) for k in (
             "fuel_savings", "lpg_cost", "baseline_l_per_100km", "baseline_source",
             "install_odometer", "km_since_install", "unpriced_count",
+            "lpg_l_per_100km", "petrol_on_lpg_l_per_100km",
         )}
 
 

@@ -518,3 +518,71 @@ def test_view_has_lpg_and_merged_segments():
     assert v["consumption"]["last_l_per_100km"] == 8.0
     assert v["lpg_consumption"]["last_l_per_100km"] == 10.0
     assert [s["fuel"] for s in v["segments"]] == ["petrol", "lpg"]
+
+
+# -- consumption while driving on LPG -------------------------------------------
+
+
+def test_lpg_mode_consumption_lpg_plus_petrol():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 3000),
+        lpg(100100, 40, 120, petrol_price=6.0),
+        pb(100400, 6, 36),
+        lpg(100700, 60, 180, petrol_price=6.0),
+    ], TODAY)
+    assert v["lpg_mode_km"] == 600
+    assert v["lpg_l_per_100km"] == pytest.approx(10.0)
+    assert v["petrol_on_lpg_l_per_100km"] == pytest.approx(1.0)
+
+
+def test_lpg_mode_consumption_excludes_petrol_only_stretch():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 3000),
+        lpg(100100, 40, 120, petrol_price=6.0),
+        pb(100300, 8, 48),
+        pb(100500, 16, 96, petrol_only=True),
+        lpg(101100, 80, 240, petrol_price=6.0),
+    ], TODAY)
+    assert v["lpg_mode_km"] == 800
+    assert v["lpg_l_per_100km"] == pytest.approx(10.0)
+    assert v["petrol_on_lpg_l_per_100km"] == pytest.approx(1.0)
+
+
+def test_lpg_mode_consumption_counts_partial_lpg_refuels():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 3000),
+        lpg(100100, 40, 120, petrol_price=6.0),
+        lpg(100400, 30, 90, full=False, petrol_price=6.0),
+        lpg(100600, 20, 60, petrol_price=6.0),
+    ], TODAY)
+    assert v["lpg_mode_km"] == 500
+    assert v["lpg_l_per_100km"] == pytest.approx(10.0)
+    assert v["petrol_on_lpg_l_per_100km"] == pytest.approx(0.0)
+
+
+def test_lpg_mode_consumption_needs_two_full_lpg_refuels_and_500_km():
+    one = lpg_view(CAR, [svc("lpg_install", 100000), lpg(100100, 40, 120)], TODAY)
+    short = lpg_view(CAR, [
+        svc("lpg_install", 100000), lpg(100100, 40, 120), lpg(100400, 30, 90),
+    ], TODAY)
+    for v in (one, short):
+        assert v["lpg_l_per_100km"] is None and v["petrol_on_lpg_l_per_100km"] is None
+
+
+def test_lpg_mode_consumption_ignores_refuels_before_install():
+    v = lpg_view(CAR, [
+        lpg(99000, 40, 120), pb(99500, 30, 180),
+        svc("lpg_install", 100000),
+        lpg(100100, 40, 120), lpg(100600, 50, 150),
+    ], TODAY)
+    assert v["lpg_mode_km"] == 500
+    assert v["lpg_l_per_100km"] == pytest.approx(10.0)
+    assert v["petrol_on_lpg_l_per_100km"] == pytest.approx(0.0)
+
+
+def test_lpg_mode_consumption_works_without_baseline():
+    v = lpg_view({**CAR, "petrol_l_per_100km": None}, [
+        svc("lpg_install", 100000), lpg(100100, 40, 120), lpg(100600, 50, 150),
+    ], TODAY)
+    assert v["status"] == "no_baseline"
+    assert v["lpg_l_per_100km"] == pytest.approx(10.0)

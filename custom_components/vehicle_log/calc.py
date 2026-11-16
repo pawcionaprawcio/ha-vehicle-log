@@ -116,6 +116,7 @@ FORECAST_MIN_KM = 500
 # A payback further away than this is noise (savings near zero), not a forecast.
 PAYBACK_MAX_KM = 500_000
 PAYBACK_MAX_DAYS = 365 * 30
+LPG_MODE_MIN_KM = 500
 
 
 def _sorted_refuels(refuels: list[dict]) -> list[dict]:
@@ -293,6 +294,39 @@ def _petrol_baseline(
     return None, None, km
 
 
+def lpg_mode_consumption(refuels: list[dict], install_odo: int) -> dict:
+    """Litres of LPG and of petrol per 100 km while driving on LPG (approximate).
+
+    Spans the first to the last full LPG refuel after the install. Stretches the
+    driver marked as petrol only (`petrol_only`) are left out, km and litres.
+    """
+    out = {"lpg_l_per_100km": None, "petrol_on_lpg_l_per_100km": None, "lpg_mode_km": 0}
+    after = [r for r in _sorted_refuels(refuels) if r["odometer"] > install_odo]
+    full_lpg = [r for r in after if _is_lpg(r) and r.get("full_tank")]
+    if len(full_lpg) < 2:
+        return out
+    start, end = full_lpg[0]["odometer"], full_lpg[-1]["odometer"]
+    km = end - start
+    lpg_l = petrol_l = 0.0
+    prev = start
+    for r in after:
+        if start < r["odometer"] <= end:
+            if _is_lpg(r):
+                lpg_l += r.get("litres") or 0
+            elif r.get("petrol_only") is True:
+                km -= r["odometer"] - prev
+            else:
+                petrol_l += r.get("litres") or 0
+        if r["odometer"] >= start:
+            prev = r["odometer"]
+    out["lpg_mode_km"] = km
+    if km < LPG_MODE_MIN_KM:
+        return out
+    out["lpg_l_per_100km"] = lpg_l / km * 100
+    out["petrol_on_lpg_l_per_100km"] = petrol_l / km * 100
+    return out
+
+
 def lpg_view(vehicle: dict, entries: list[dict], today: date) -> dict | None:
     """LPG savings and payback; None when the vehicle has no LPG install."""
     if not _lpg_entries(entries, ("lpg_install",)):
@@ -306,7 +340,8 @@ def lpg_view(vehicle: dict, entries: list[dict], today: date) -> dict | None:
         "fuel_savings": None, "lpg_cost": lpg_cost, "net_savings": None,
         "progress_pct": None, "remaining": None, "payback_odometer": None,
         "payback_month": None, "paid_back": None, "unpriced_count": 0,
-        "km_since_install": None,
+        "km_since_install": None, "lpg_l_per_100km": None,
+        "petrol_on_lpg_l_per_100km": None, "lpg_mode_km": 0,
     }
     point = lpg_install_point(entries)
     if point is None:
@@ -315,6 +350,7 @@ def lpg_view(vehicle: dict, entries: list[dict], today: date) -> dict | None:
     last = last_reading(entries)
     current_odo = max(install_odo, last[1] if last else install_odo)
     refuels = _sorted_refuels([e for e in entries if e.get("kind") == "refuel"])
+    out.update(lpg_mode_consumption(refuels, install_odo))
     baseline, source, measured_km = _petrol_baseline(vehicle, refuels, install_odo)
     out.update(
         install_date=point.get("date"), install_odometer=install_odo,

@@ -75,6 +75,22 @@ export class VlEntries extends LitElement {
     return null;
   }
 
+  _hasLpgMode(l) {
+    return l.lpg_l_per_100km !== null && l.lpg_l_per_100km !== undefined;
+  }
+
+  /** Tile: LPG litres plus petrol litres per 100 km while driving on LPG. */
+  _lpgModeTile(l) {
+    const has = this._hasLpgMode(l);
+    return html`<div class="tile">
+      <div class="k">${t("lpg_mode")}</div>
+      <div class="v">${has ? `~${fmtDec(l.lpg_l_per_100km, 1, 1)} l LPG` : "—"}</div>
+      <div class="s">${has
+        ? t("lpg_mode_petrol", { l: fmtDec(l.petrol_on_lpg_l_per_100km, 1, 1) })
+        : t("lpg_mode_pending")}</div>
+    </div>`;
+  }
+
   _lpgSection(v) {
     const l = v.lpg;
     if (!l) return nothing;
@@ -105,13 +121,14 @@ export class VlEntries extends LitElement {
     }
     const pb = l.baseline_l_per_100km;
     const pbNote = l.baseline_source === "measured" ? t("measured_km", { km: fmtKm(l.measured_km) }) : t("entered");
-    const lc = v.lpg_consumption;
     return html`<div class="lpg">
       <div class="k">${head}</div>
       ${body}
       ${l.unpriced_count ? html`<div class="s">${t("lpg_unpriced", { n: l.unpriced_count })}</div>` : nothing}
       ${pb !== null && pb !== undefined ? html`<div class="s">${t("petrol_consumption")}: ${this._l100(pb)} (${pbNote})</div>` : nothing}
-      ${lc ? html`<div class="s">LPG: ~${this._l100(lc.avg_l_per_100km)} (${t("approximate")})</div>` : nothing}
+      ${this._hasLpgMode(l)
+        ? html`<div class="s">${t("lpg_mode_line", { lpg: fmtDec(l.lpg_l_per_100km, 1, 1), pb: fmtDec(l.petrol_on_lpg_l_per_100km, 1, 1) })}</div>`
+        : nothing}
     </div>`;
   }
 
@@ -154,7 +171,8 @@ export class VlEntries extends LitElement {
                 <div class="v">${c ? this._l100(c.last_l_per_100km) : "—"}</div>
                 ${c && lastSeg ? html`<div class="s">${t("refuel_on", { date: fmtShortDate(lastSeg.to_date) })}</div>` : nothing}
               </div>
-              ${lc
+              ${v.lpg ? this._lpgModeTile(v.lpg) : nothing}
+              ${lc && !v.lpg
                 ? html`<div class="tile">
                     <div class="k">${t("lpg_consumption")}</div>
                     <div class="v">~${this._l100(lc.avg_l_per_100km)}</div>
