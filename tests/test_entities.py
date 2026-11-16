@@ -269,6 +269,22 @@ async def test_lpg_savings_sensor_has_lpg_mode_consumption(hass, ws):
     assert "lpg_l_per_100km" in attrs and "petrol_on_lpg_l_per_100km" in attrs
 
 
+async def test_consumption_sensor_has_lpg_mode_without_install(hass, ws):
+    view = await ws_call(ws, "vehicle_log/vehicle/save",
+                         vehicle={"name": "Gaz", "fuel_types": ["Pb95", "LPG"]})
+    vid = view["vehicles"][0]["id"]
+    for odo, litres in ((100000, 40), (100500, 50)):
+        await ws_call(ws, "vehicle_log/entry/save", entry={
+            "vehicle_id": vid, "kind": "refuel", "date": "2026-11-10",
+            "odometer": odo, "litres": litres, "total": litres * 3, "fuel_type": "LPG",
+            "full_tank": True,
+        })
+    await hass.async_block_till_done()
+    attrs = _state(hass, "sensor", f"{vid}_consumption").attributes
+    assert attrs["lpg_l_per_100km"] == 10.0
+    assert attrs["petrol_on_lpg_l_per_100km"] == 0.0
+
+
 async def test_lpg_payback_sensor_needs_cost(hass, ws):
     vid, _ = await _lpg_car(hass, ws)
     assert float(_state(hass, "sensor", f"{vid}_lpg_savings").state) == 90.0

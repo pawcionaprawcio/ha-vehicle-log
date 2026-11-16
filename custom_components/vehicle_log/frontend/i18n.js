@@ -213,7 +213,6 @@ const S = {
   ],
   entered: ["wpisane", "entered"],
   measured_km: [(p) => `zmierzone, ${p.km}`, (p) => `measured, ${p.km}`],
-  lpg_consumption: ["Spalanie LPG", "LPG consumption"],
   approximate: ["orientacyjnie", "approximate"],
   lpg_mode: ["Jazda na LPG", "Driving on LPG"],
   lpg_mode_petrol: [(p) => `+ ${p.l} l Pb · orientacyjnie`, (p) => `+ ${p.l} l petrol · approximate`],
