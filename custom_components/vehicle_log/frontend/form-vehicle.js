@@ -1,4 +1,4 @@
-import { VlForm, html, LIMITS } from "./ui.js";
+import { VlForm, html, LIMITS, toField, badNum } from "./ui.js";
 import { t as tr, fuelLabel } from "./i18n.js";
 
 const MAX_FUELS = 2;
@@ -9,6 +9,7 @@ export class VlVehicleForm extends VlForm {
     _name: { state: true },
     _purchase: { state: true },
     _fuels: { state: true },
+    _petrolL100: { state: true },
   };
 
   willUpdate(changed) {
@@ -17,6 +18,7 @@ export class VlVehicleForm extends VlForm {
       this._name = v.name || "";
       this._purchase = v.purchase_date || "";
       this._fuels = [...(v.fuel_types || [])];
+      this._petrolL100 = toField(v.petrol_l_per_100km);
     }
   }
 
@@ -38,12 +40,17 @@ export class VlVehicleForm extends VlForm {
       this._error = tr("need_fuel");
       return;
     }
+    if (badNum(this._petrolL100)) {
+      this._error = tr("bad_number");
+      return;
+    }
     const vehicle = {
       ...(this.entry || {}),
       id: this.entry?.id || this._newId,
       name,
       purchase_date: this._purchase || null,
       fuel_types: this._fuels,
+      petrol_l_per_100km: this._petrolL100,
     };
     await this._call({ type: "vehicle_log/vehicle/save", vehicle });
   }
@@ -64,6 +71,8 @@ export class VlVehicleForm extends VlForm {
           return this.switchRow(fuelLabel(t), on, (checked) => this._toggleFuel(t, checked), "", !on && this._fuels.length >= MAX_FUELS);
         })}
       </div>
+      ${this.num(tr("petrol_consumption"), this._petrolL100, (v) => (this._petrolL100 = v), "", "l/100 km")}
+      <div class="hint">${tr("petrol_consumption_hint")}</div>
     </div>`;
   }
 

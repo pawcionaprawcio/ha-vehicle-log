@@ -19,6 +19,8 @@ export function typeRow(type, onClick) {
 export class VlTypePicker extends LitElement {
   static properties = {
     serviceTypes: { attribute: false },
+    /** Extra type ids to leave out, e.g. LPG types that do not apply to this vehicle. */
+    hidden: { attribute: false },
     _search: { state: true },
   };
   static styles = [
@@ -55,7 +57,7 @@ export class VlTypePicker extends LitElement {
   render() {
     const q = this._search.trim().toLocaleLowerCase(lang());
     const types = Object.entries(this.serviceTypes || {}).filter(
-      ([id, t]) => !HIDDEN_TYPES.includes(id) && t.label.toLocaleLowerCase(lang()).includes(q),
+      ([id, t]) => !HIDDEN_TYPES.includes(id) && !(this.hidden || []).includes(id) && t.label.toLocaleLowerCase(lang()).includes(q),
     );
     return html`<label class="f"
         ><ha-icon icon="mdi:magnify"></ha-icon

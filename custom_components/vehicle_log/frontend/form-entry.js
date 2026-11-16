@@ -94,9 +94,26 @@ export class VlEntryForm extends VlForm {
     };
   }
 
+  /** LPG install is offered until the vehicle has one; LPG service only for an LPG vehicle. */
+  _hiddenTypes() {
+    const v = this.vehicle || {};
+    const hidden = [];
+    if ((v.entries || []).some((e) => e.service_type === "lpg_install")) hidden.push("lpg_install");
+    if (!(v.fuel_types || []).includes("LPG")) hidden.push("lpg_service");
+    return hidden;
+  }
+
+  _lpgHints() {
+    if (this._f.service_type !== "lpg_install") return nothing;
+    const fuels = this.vehicle?.fuel_types || [];
+    return html`<div class="hint">${t("lpg_install_hint")}</div>
+      ${fuels.length >= 2 && !fuels.includes("LPG") ? html`<div class="hint warn">${t("lpg_two_fuels_hint")}</div>` : nothing}`;
+  }
+
   _renderPicker() {
     return html`<vl-type-picker
       .serviceTypes=${localizeTypes(this.view?.service_types)}
+      .hidden=${this._hiddenTypes()}
       @pick=${(e) => this._pickType(e.detail.id, e.detail.label)}
     ></vl-type-picker>`;
   }
@@ -112,6 +129,7 @@ export class VlEntryForm extends VlForm {
         ${this.field(t("date"), f.date, (v) => this._set("date", v), { type: "date" })}
         ${this.field(t("odometer"), f.odometer, (v) => this._set("odometer", v), { inputmode: "numeric", suffix: "km" })}
       </div>
+      ${this._lpgHints()}
       <div class="row">
         ${this.num(t("parts"), f.parts, (v) => this._set("parts", v), "", "zł")}
         ${this.num(t("labour"), f.labour, (v) => this._set("labour", v), "", "zł")}

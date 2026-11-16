@@ -304,6 +304,7 @@ export const haStyles = css`
   .empty { padding: 24px 16px; text-align: center; color: var(--secondary-text-color, #727272); }
   .error { color: var(--error-color, #db4437); font-size: 14px; word-break: break-word; }
   .hint { font-size: 12px; color: var(--secondary-text-color, #727272); }
+  .hint.warn { color: var(--warning-color, #ffa600); }
 `;
 
 /** Dialog shell, outlined fields and base form controls used by the entry forms. */

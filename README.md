@@ -18,7 +18,8 @@ The sample data below is made up (an Ursus C-330 tractor, an Izera and a Polonez
 
 - Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels.
 - Service entries (oil, filters, brakes, tyres, ...), refuels and odometer updates.
-- Fuel consumption (L/100 km) calculated from full-tank refuels.
+- Fuel consumption (L/100 km) calculated from full-tank refuels, per fuel.
+- LPG savings: how much driving on LPG saves compared with petrol, and when the installation pays for itself (see below).
 - Reminders by date, mileage or both (for example "every 12 months or 10 000 km"), with ready-made templates.
 - Forecast odometer based on your driving history, so mileage-based reminders can warn you in advance.
 - Home Assistant sensors, a persistent notification and an event for every due item.
@@ -49,6 +50,17 @@ The panel is in English or Polish. It follows the language set in your Home Assi
 
 The garage tab can import the `.xlsx` file exported by the Car Notes Android app (vehicles, with their service entries and odometer readings; each vehicle's purchase date is taken when present). Refuels and reminders are not imported: log refuels in the panel and re-create reminders in the Reminders tab. Choose the file in the garage tab and confirm. This integration is an independent project and is not affiliated with or endorsed by the Car Notes app or its authors.
 
+## LPG savings
+
+For a car converted to LPG:
+
+1. In the garage, set the vehicle's petrol consumption ("Spalanie Pb", l/100 km). It is used until the panel has measured it from your refuels (at least 1000 km of petrol-only driving).
+2. Add a service entry of type "Montaż instalacji LPG" (LPG installation) with the odometer reading and the cost. Savings are counted from that odometer reading. If the vehicle has fewer than two fuels, LPG is added to its fuels. Later LPG service entries ("Serwis LPG") count as LPG costs too.
+3. On LPG refuels you can enter the current petrol price; when it is empty, the last known petrol price is used.
+4. On a petrol refuel after the installation, switch on "only petrol since the last petrol refuel" when that is true, so the refuel counts towards the measured petrol consumption.
+
+The vehicle card in the entries tab shows the total saved and, when the LPG costs are known, the payback progress, the amount still to pay back and a forecast odometer and month. LPG consumption is approximate, because the engine also burns some petrol when running on LPG.
+
 ## Settings
 
 Available in the garage tab:
@@ -69,6 +81,8 @@ Per vehicle (the vehicle is a device; entity ids follow the device name, e.g. `s
 | Forecast odometer | sensor, km | Estimated current mileage. |
 | Fuel consumption | sensor, L/100km | Last full-tank segment; attributes `avg_l_per_100km`, `avg_cost_per_100km`. |
 | Odometer update due | binary sensor (problem) | On when an odometer reading is overdue. |
+| LPG savings | sensor, currency | Fuel savings minus LPG installation and service costs. Only for vehicles with an LPG installation entry. |
+| LPG payback | sensor, % | How much of the LPG costs the savings have paid back; attributes `remaining`, `paid_back`, `payback_odometer`, `payback_month`. Only when the LPG costs are known. |
 
 Per reminder:
 

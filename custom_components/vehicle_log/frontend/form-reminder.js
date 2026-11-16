@@ -112,6 +112,7 @@ export class VlReminderForm extends VlForm {
     if (this._step === 1) {
       return html`<vl-type-picker
         .serviceTypes=${localizeTypes(this.view?.service_types)}
+        .hidden=${["lpg_install"]}
         @pick=${(e) => this._pickType(e.detail.id, e.detail.label)}
       ></vl-type-picker>`;
     }
