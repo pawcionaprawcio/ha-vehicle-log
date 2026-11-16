@@ -60,6 +60,11 @@ function group(n) {
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
 }
 
+/** Number with NBSP-grouped thousands, no unit ("" when unset). */
+export function fmtInt(n) {
+  return n === null || n === undefined ? "" : group(n);
+}
+
 export function fmtKm(n) {
   return n === null || n === undefined ? "" : `${group(n)}${NBSP}km`;
 }
@@ -255,9 +260,9 @@ export const haStyles = css`
     background: color-mix(in srgb, var(--secondary-text-color, #727272) 18%, transparent);
     color: var(--primary-text-color);
   }
-  .chip.c-ok { background: color-mix(in srgb, var(--success-color, #43a047) 18%, transparent); color: var(--success-color, #43a047); }
-  .chip.c-warn { background: color-mix(in srgb, var(--warning-color, #ffa600) 18%, transparent); color: var(--warning-color, #ffa600); }
-  .chip.c-err { background: color-mix(in srgb, var(--error-color, #db4437) 18%, transparent); color: var(--error-color, #db4437); }
+  .chip.c-ok { background: color-mix(in srgb, var(--success-color, #43a047) 18%, transparent); color: color-mix(in srgb, var(--success-color, #43a047) 55%, var(--primary-text-color, #212121)); }
+  .chip.c-warn { background: color-mix(in srgb, var(--warning-color, #ffa600) 18%, transparent); color: color-mix(in srgb, var(--warning-color, #ffa600) 55%, var(--primary-text-color, #212121)); }
+  .chip.c-err { background: color-mix(in srgb, var(--error-color, #db4437) 18%, transparent); color: color-mix(in srgb, var(--error-color, #db4437) 55%, var(--primary-text-color, #212121)); }
   input.switch {
     appearance: none; -webkit-appearance: none; position: relative; flex: none; margin: 0;
     width: 36px; height: 20px; min-height: 0; padding: 0; border: 0; border-radius: 10px; cursor: pointer;
@@ -342,7 +347,8 @@ export const sheetStyles = css`
   .foot-row .spacer { flex: 1; }
   :host([narrow]) .foot-row { flex-direction: column-reverse; align-items: stretch; }
   :host([narrow]) .foot-row .spacer { display: none; }
-  :host([narrow]) .foot-row .btn { width: 100%; }
+  :host([narrow]) .foot-row .btn { width: 100%; height: 48px; min-height: 48px; }
+  :host([narrow]) .expander-btn { height: 48px; min-height: 48px; }
   :host([narrow]) .foot-row .btn.fill { height: 48px; border-radius: 24px; font-size: 15px; }
   .row { display: flex; gap: 12px; }
   .row > * { flex: 1; min-width: 0; }
@@ -533,7 +539,7 @@ export class VlForm extends LitElement {
   expander(open, label, onOpen, content) {
     return open
       ? content
-      : html`<button class="btn text" style="align-self:flex-start" @click=${onOpen}>
+      : html`<button class="btn text expander-btn" style="align-self:flex-start" @click=${onOpen}>
           <ha-icon icon="mdi:plus"></ha-icon>${label}
         </button>`;
   }
