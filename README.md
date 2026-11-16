@@ -4,8 +4,6 @@ A car service journal for Home Assistant, with its own sidebar panel.
 
 Keep a log of service entries, refuels and odometer readings for one or more vehicles. Set reminders by date and/or mileage and get notified when they are due. Everything is stored locally in Home Assistant; no cloud, no account.
 
-> Screenshots: _coming soon_.
-
 ## Features
 
 - Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels.
@@ -24,6 +22,16 @@ Keep a log of service entries, refuels and odometer readings for one or more veh
 4. Go to **Settings > Devices & services > Add integration** and add **Vehicle Log**. No configuration is needed; only one instance is allowed.
 
 A **Vehicle Log** entry appears in the sidebar. The panel has three tabs: entries, reminders and garage (vehicles, settings and import).
+
+The panel follows the look of Home Assistant's own Settings pages and adapts to the active theme (light, dark or a custom one):
+
+- A top bar with a vehicle picker, the tabs **Wpisy**, **Przypomnienia** and **Garaż** (a bottom bar on phones), and a menu button.
+- **Wpisy**: a summary card with odometer and consumption, then entries grouped by month as list rows with round icon badges. Add service entries, refuels and odometer readings from the floating action button.
+- **Przypomnienia**: cards with a coloured status chip (on time, soon, overdue), the nearest limit in large text and a progress bar. Tap a card for details.
+- **Garaż**: vehicles, settings switches and the import.
+- Forms open as full-screen sheets on a phone, so refuels can be entered at the pump from the Companion app.
+
+The interface is in Polish.
 
 ## Importing from Car Notes
 
