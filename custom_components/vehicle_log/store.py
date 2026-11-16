@@ -150,8 +150,9 @@ def _check_range(label: str, value: Any, lo: float, hi: float, lo_open: bool) ->
 
 
 def _check_consumption(value: Any) -> float | None:
-    """Manual petrol consumption in l/100 km: None, or 1..50."""
-    return _check_range("petrol_l_per_100km", value, CONSUMPTION_MIN, CONSUMPTION_MAX, False)
+    """Manual petrol consumption in l/100 km: None, or 1..50, rounded to 0.1."""
+    value = _check_range("petrol_l_per_100km", value, CONSUMPTION_MIN, CONSUMPTION_MAX, False)
+    return None if value is None else round(value, 1)
 
 
 def _check_petrol_price(value: Any) -> float | None:

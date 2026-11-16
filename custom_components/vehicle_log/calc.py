@@ -113,6 +113,9 @@ LPG_SERVICE_TYPES = ("lpg_install", "lpg_service")
 MEASURED_MIN_KM = 1000
 # The payback forecast needs at least this many priced km since the install.
 FORECAST_MIN_KM = 500
+# A payback further away than this is noise (savings near zero), not a forecast.
+PAYBACK_MAX_KM = 500_000
+PAYBACK_MAX_DAYS = 365 * 30
 
 
 def _sorted_refuels(refuels: list[dict]) -> list[dict]:
@@ -360,9 +363,11 @@ def lpg_view(vehicle: dict, entries: list[dict], today: date) -> dict | None:
     if paid_back or priced_km < FORECAST_MIN_KM or rate <= 0:
         return out
     km_left = remaining / rate
+    if km_left > PAYBACK_MAX_KM:
+        return out
     out["payback_odometer"] = round(current_odo + km_left)
     per_day = km_per_day(entries)
-    if per_day and last:
+    if per_day and last and km_left / per_day <= PAYBACK_MAX_DAYS:
         when = last[0] + timedelta(days=round(km_left / per_day))
         out["payback_month"] = max(when, today).strftime("%Y-%m")
     return out

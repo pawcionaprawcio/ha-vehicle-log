@@ -483,6 +483,17 @@ def test_payback_forecast_month():
     assert v["payback_month"] == "2026-03"
 
 
+def test_payback_forecast_skipped_when_savings_near_zero():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 4000, date="2026-01-01"),
+        lpg(100500, 50, 239.99, date="2026-01-10", petrol_price=6.0),
+        lpg(101100, 60, 288, date="2026-02-10", petrol_price=6.0),
+    ], date(2026, 2, 10))
+    assert v["fuel_savings"] == pytest.approx(0.01)
+    assert v["payback_odometer"] is None and v["payback_month"] is None
+    assert v["remaining"] == pytest.approx(3999.99)
+
+
 def test_paid_back():
     v = lpg_view(CAR, [svc("lpg_install", 100000, 50), lpg(100500, 50, 150, petrol_price=6.0)], TODAY)
     assert v["paid_back"] is True and v["progress_pct"] == 100 and v["remaining"] == 0

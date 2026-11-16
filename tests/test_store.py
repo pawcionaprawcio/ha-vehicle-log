@@ -778,6 +778,12 @@ async def test_vehicle_petrol_consumption_saved(hass):
     assert store.data["vehicles"][0]["petrol_l_per_100km"] == 8.5
 
 
+async def test_vehicle_petrol_consumption_rounded_to_tenth(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car", "petrol_l_per_100km": 8.55})
+    assert v["petrol_l_per_100km"] == 8.6
+
+
 async def test_vehicle_petrol_consumption_defaults_to_none(hass):
     store = await _store(hass)
     v = await store.async_save_vehicle({"name": "Car"})

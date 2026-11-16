@@ -92,7 +92,8 @@ export class VlEntries extends LitElement {
       const when = l.payback_month ? `~${l.payback_month.slice(5, 7)}.${l.payback_month.slice(0, 4)}` : null;
       const rest = [
         t("lpg_remaining", { amount: fmtMoney(l.remaining) }),
-        l.payback_odometer !== null && l.payback_odometer !== undefined ? t("lpg_at_km", { km: fmtKm(l.payback_odometer) }) : null,
+        l.payback_odometer !== null && l.payback_odometer !== undefined && v.odometer !== null && v.odometer !== undefined
+          ? t("lpg_at_km", { km: fmtKm(Math.max(0, l.payback_odometer - v.odometer)) }) : null,
         when,
       ].filter(Boolean).join(" · ");
       body = html`<div class="saved">${t("lpg_saved", { amount: fmtMoney(l.fuel_savings) })}</div>

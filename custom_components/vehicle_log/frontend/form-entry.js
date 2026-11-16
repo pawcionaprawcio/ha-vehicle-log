@@ -97,10 +97,12 @@ export class VlEntryForm extends VlForm {
   /** LPG install is offered until the vehicle has one; LPG service only for an LPG vehicle. */
   _hiddenTypes() {
     const v = this.vehicle || {};
+    const editing = this.entry?.id;
     const hidden = [];
-    if ((v.entries || []).some((e) => e.service_type === "lpg_install")) hidden.push("lpg_install");
+    if ((v.entries || []).some((e) => e.service_type === "lpg_install" && e.id !== editing)) hidden.push("lpg_install");
     if (!(v.fuel_types || []).includes("LPG")) hidden.push("lpg_service");
-    return hidden;
+    // An edited entry always keeps its own type on the list.
+    return hidden.filter((id) => id !== this.entry?.service_type);
   }
 
   _lpgHints() {
