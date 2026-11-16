@@ -756,3 +756,174 @@ async def test_import_creates_vehicles_without_fuel_types(hass):
     store = await _store(hass)
     await store.async_import(parse_car_notes_xlsx(make_xlsx(TWO_VEHICLES)))
     assert all(v["fuel_types"] == [] for v in store.data["vehicles"])
+
+
+# -- LPG savings fields ------------------------------------------------------
+
+
+def _refuel(vid, **kw):
+    e = {
+        "vehicle_id": vid, "kind": "refuel", "date": "2026-12-01",
+        "odometer": 1000, "total": 150.0, "litres": 50.0, "full_tank": True,
+        "fuel_type": "LPG",
+    }
+    e.update(kw)
+    return e
+
+
+async def test_vehicle_petrol_consumption_saved(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car", "petrol_l_per_100km": 8.5})
+    assert v["petrol_l_per_100km"] == 8.5
+    assert store.data["vehicles"][0]["petrol_l_per_100km"] == 8.5
+
+
+async def test_vehicle_petrol_consumption_rounded_to_tenth(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car", "petrol_l_per_100km": 8.55})
+    assert v["petrol_l_per_100km"] == 8.6
+
+
+async def test_vehicle_petrol_consumption_defaults_to_none(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    assert v["petrol_l_per_100km"] is None
+
+
+@pytest.mark.parametrize("bad", [0.5, 51, "x", True, float("nan")])
+async def test_vehicle_petrol_consumption_rejects_out_of_range(hass, bad):
+    store = await _store(hass)
+    with pytest.raises(ValueError):
+        await store.async_save_vehicle({"name": "Car", "petrol_l_per_100km": bad})
+    assert store.data["vehicles"] == []
+
+
+async def test_load_repairs_bad_vehicle_consumption(hass, hass_storage):
+    _seed(hass_storage, vehicles=[
+        {"id": "v1", "name": "A", "purchase_date": None, "icon": None,
+         "fuel_types": [], "petrol_l_per_100km": "abc"},
+        {"id": "v2", "name": "B", "purchase_date": None, "icon": None,
+         "fuel_types": [], "petrol_l_per_100km": 7.2},
+    ])
+    store = await _store(hass)
+    assert [v["petrol_l_per_100km"] for v in store.data["vehicles"]] == [None, 7.2]
+    assert store.data["quarantine"] == []
+
+
+async def test_import_vehicle_has_no_consumption(hass):
+    store = await _store(hass)
+    await store.async_import(parse_car_notes_xlsx(make_xlsx(TWO_VEHICLES)))
+    assert all(v["petrol_l_per_100km"] is None for v in store.data["vehicles"])
+    assert all(
+        e["petrol_price"] is None and e["petrol_only"] is False
+        for e in store.data["entries"]
+    )
+
+
+async def test_lpg_refuel_keeps_petrol_price(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    e = await store.async_save_entry(_refuel(v["id"], petrol_price=6.49))
+    assert e["petrol_price"] == 6.49
+    assert e["petrol_only"] is False
+
+
+async def test_petrol_price_cleared_on_non_lpg_refuel(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    e = await store.async_save_entry(_refuel(v["id"], fuel_type="Pb95", petrol_price=6.49))
+    assert e["petrol_price"] is None
+    s = await store.async_save_entry(_service(v["id"], petrol_price=6.49, petrol_only=True))
+    assert s["petrol_price"] is None and s["petrol_only"] is False
+
+
+@pytest.mark.parametrize("bad", [0, -1, 51, "x", True])
+async def test_petrol_price_rejects_bad(hass, bad):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    with pytest.raises(ValueError):
+        await store.async_save_entry(_refuel(v["id"], petrol_price=bad))
+    assert store.data["entries"] == []
+
+
+async def test_petrol_only_kept_on_petrol_refuel(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    e = await store.async_save_entry(_refuel(v["id"], fuel_type="Pb95", petrol_only=True))
+    assert e["petrol_only"] is True
+
+
+async def test_petrol_only_cleared_on_lpg_refuel(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    e = await store.async_save_entry(_refuel(v["id"], petrol_only=True))
+    assert e["petrol_only"] is False
+
+
+async def test_petrol_only_must_be_bool(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car"})
+    with pytest.raises(ValueError):
+        await store.async_save_entry(_refuel(v["id"], fuel_type="Pb95", petrol_only="yes"))
+
+
+async def test_load_repairs_bad_petrol_fields(hass, hass_storage):
+    _seed(
+        hass_storage,
+        vehicles=[{"id": "v1", "name": "A", "purchase_date": None, "icon": None, "fuel_types": []}],
+        entries=[
+            {"id": "e1", "vehicle_id": "v1", "kind": "refuel", "fuel_type": "LPG",
+             "date": "2026-12-01", "odometer": 1000, "total": 150.0, "litres": 50.0,
+             "price_per_litre": 3.0, "full_tank": True, "petrol_price": "x"},
+            {"id": "e2", "vehicle_id": "v1", "kind": "refuel", "fuel_type": "Pb95",
+             "date": "2026-12-02", "odometer": 1100, "total": 300.0, "litres": 50.0,
+             "price_per_litre": 6.0, "full_tank": True, "petrol_only": "yes"},
+        ],
+    )
+    store = await _store(hass)
+    e1, e2 = store.data["entries"]
+    assert e1["petrol_price"] is None
+    assert e2["petrol_only"] is False
+    assert store.data["quarantine"] == []
+
+
+async def test_old_entries_get_lpg_defaults(hass, hass_storage):
+    _seed(
+        hass_storage,
+        vehicles=[{"id": "v1", "name": "A", "purchase_date": None, "icon": None, "fuel_types": []}],
+        entries=[{"id": "e1", "vehicle_id": "v1", "kind": "refuel", "fuel_type": "Pb95",
+                  "date": "2026-12-01", "odometer": 1000, "total": 300.0, "litres": 50.0,
+                  "price_per_litre": 6.0, "full_tank": True}],
+    )
+    store = await _store(hass)
+    e = store.data["entries"][0]
+    assert e["petrol_price"] is None and e["petrol_only"] is False
+
+
+async def test_lpg_service_types_exist(hass):
+    from custom_components.vehicle_log.const import SERVICE_TYPES
+    keys = list(SERVICE_TYPES)
+    assert keys[-3:] == ["lpg_install", "lpg_service", "refuel"]
+    assert SERVICE_TYPES["lpg_install"]["label"] == "Montaż instalacji LPG"
+    assert SERVICE_TYPES["lpg_service"]["label"] == "Serwis LPG"
+
+
+@pytest.mark.parametrize(("before", "after"), [
+    (["Pb95"], ["Pb95", "LPG"]),
+    ([], ["LPG"]),
+    (["Pb95", "LPG"], ["Pb95", "LPG"]),
+    (["Pb95", "Pb98"], ["Pb95", "Pb98"]),
+])
+async def test_lpg_install_adds_lpg_fuel(hass, before, after):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car", "fuel_types": before})
+    await store.async_save_entry(_service(v["id"], service_type="lpg_install", name="Montaż"))
+    assert store.data["vehicles"][0]["fuel_types"] == after
+    assert len(store.data["entries"]) == 1
+
+
+async def test_lpg_service_does_not_touch_fuels(hass):
+    store = await _store(hass)
+    v = await store.async_save_vehicle({"name": "Car", "fuel_types": ["Pb95"]})
+    await store.async_save_entry(_service(v["id"], service_type="lpg_service", name="Filtr"))
+    assert store.data["vehicles"][0]["fuel_types"] == ["Pb95"]

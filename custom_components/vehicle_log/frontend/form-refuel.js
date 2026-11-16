@@ -3,6 +3,7 @@ import { LIMITS } from "./ui.js";
 import { t as tr, fuelLabel } from "./i18n.js";
 
 const OTHER = "__other";
+const LPG = "LPG";
 const AMOUNTS = ["total", "price_per_litre", "litres"];
 
 export class VlRefuelForm extends VlForm {
@@ -72,6 +73,8 @@ export class VlRefuelForm extends VlForm {
       discount_pct: toField(e.discount_pct),
       discount_amount: toField(e.discount_amount),
       comment: e.comment || "",
+      petrol_price: toField(e.petrol_price),
+      petrol_only: Boolean(e.petrol_only),
     };
     this._showTax = Boolean(e.tax_pct || e.discount_pct || e.discount_amount);
     this._showComment = Boolean(e.comment);
@@ -113,7 +116,7 @@ export class VlRefuelForm extends VlForm {
     const f = this._f;
     const odoErr = intError(f.odometer);
     if (odoErr) throw new Error(odoErr);
-    for (const k of [...AMOUNTS, "odometer", "tax_pct", "discount_pct", "discount_amount"]) {
+    for (const k of [...AMOUNTS, "odometer", "tax_pct", "discount_pct", "discount_amount", "petrol_price"]) {
       if (badNum(f[k])) throw new Error(tr("bad_number"));
     }
     const drop = this._derivedKey();
@@ -137,9 +140,34 @@ export class VlRefuelForm extends VlForm {
       discount_pct: f.discount_pct,
       discount_amount: f.discount_amount,
       comment: f.comment,
+      // the store keeps petrol_price only on LPG refuels and petrol_only only on the others
+      petrol_price: fuel === LPG ? f.petrol_price : "",
+      petrol_only: fuel !== LPG && this._hasInstall ? f.petrol_only : false,
     };
     if (fuel) storage.set(`vehicle_log.fuel.${this.vehicle.id}`, fuel);
     return entry;
+  }
+
+  get _hasInstall() {
+    const odo = this.vehicle?.lpg?.install_odometer;
+    return odo !== null && odo !== undefined;
+  }
+
+  get _isLpg() {
+    return (this._f.fuel === OTHER ? this._f.fuel_other.trim() : this._f.fuel) === LPG;
+  }
+
+  _renderPetrolPrice() {
+    const f = this._f;
+    if (!this._isLpg) return nothing;
+    return html`${this.num(tr("petrol_price"), f.petrol_price, (v) => this._set("petrol_price", v), "", "zł/l")}
+      <div class="hint">${tr("petrol_price_hint")}</div>`;
+  }
+
+  _renderPetrolOnly() {
+    const f = this._f;
+    if (this._isLpg || !this._hasInstall) return nothing;
+    return this.switchRow(tr("petrol_only"), f.petrol_only, (v) => this._set("petrol_only", v), tr("petrol_only_hint"));
   }
 
   _amount(label, key, suffix) {
@@ -191,12 +219,14 @@ export class VlRefuelForm extends VlForm {
         ${this._amount(tr("price_per_litre"), "price_per_litre", "zł/l")} ${this._amount(tr("litres"), "litres", "l")}
       </div>
       <div class="hint">${tr("two_values_hint")}</div>
+      ${this._renderPetrolPrice()}
       ${this.field(tr("odometer"), f.odometer, (v) => this._set("odometer", v), {
         inputmode: "numeric",
         suffix: "km",
         placeholder: !this.editing && this.vehicle?.odometer != null ? tr("last_value", { value: fmtInt(this.vehicle.odometer) }) : "",
       })}
       ${this.switchRow(tr("full_tank"), f.full_tank, (v) => this._set("full_tank", v), tr("full_tank_hint"))}
+      ${this._renderPetrolOnly()}
       <div class="row">
         ${this.field(tr("date"), f.date, (v) => this._set("date", v), { type: "date" })}
         ${this.field(tr("time"), f.time, (v) => this._set("time", v), { type: "time" })}

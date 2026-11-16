@@ -320,3 +320,29 @@ def test_manifest_version_matches_const():
 
     manifest = Path(__file__).parent.parent / "custom_components/vehicle_log/manifest.json"
     assert json.loads(manifest.read_text())["version"] == VERSION
+
+
+async def test_entry_save_parses_petrol_price_comma(hass, ws):
+    vid = await save_vehicle(ws)
+    r = await ws_call(
+        ws, "vehicle_log/entry/save",
+        entry={
+            "vehicle_id": vid, "kind": "refuel", "date": "2026-12-01",
+            "odometer": "1000", "litres": "40", "total": "120",
+            "fuel_type": "LPG", "full_tank": True, "petrol_price": "6,49",
+        },
+    )
+    assert r["vehicles"][0]["entries"][0]["petrol_price"] == 6.49
+
+
+async def test_vehicle_save_parses_consumption_comma(hass, ws):
+    view = await ws_call(
+        ws, "vehicle_log/vehicle/save",
+        vehicle={"name": "Car", "petrol_l_per_100km": "8,5"},
+    )
+    assert view["vehicles"][0]["petrol_l_per_100km"] == 8.5
+    view = await ws_call(
+        ws, "vehicle_log/vehicle/save",
+        vehicle={"id": view["vehicles"][0]["id"], "name": "Car", "petrol_l_per_100km": ""},
+    )
+    assert view["vehicles"][0]["petrol_l_per_100km"] is None

@@ -199,6 +199,38 @@ const S = {
   purchase_date: ["Data zakupu", "Purchase date"],
   fuel_hint: ["Jeden lub dwa, np. Pb95 + LPG", "One or two, e.g. Petrol 95 + LPG"],
 
+  // LPG
+  petrol_consumption: ["Spalanie Pb", "Petrol consumption"],
+  petrol_consumption_hint: ["Używane do czasu zmierzenia z tankowań", "Used until it is measured from refuels"],
+  petrol_price: ["Cena Pb", "Petrol price"],
+  petrol_price_hint: ["Do wyliczenia oszczędności; puste = ostatnia znana cena", "For the savings; empty = last known price"],
+  petrol_only: ["Od ostatniego tankowania Pb jeździłem tylko na benzynie", "Only petrol since the last petrol refuel"],
+  petrol_only_hint: ["Do pomiaru spalania Pb", "Used to measure petrol consumption"],
+  lpg_install_hint: ["Od tego przebiegu liczona jest oszczędność na LPG", "LPG savings are counted from this odometer reading"],
+  lpg_two_fuels_hint: [
+    "Auto ma już dwa paliwa — zmień paliwa w Garażu, żeby tankować LPG",
+    "This vehicle already has two fuels — change them in the Garage to refuel LPG",
+  ],
+  entered: ["wpisane", "entered"],
+  measured_km: [(p) => `zmierzone, ${p.km}`, (p) => `measured, ${p.km}`],
+  lpg_consumption: ["Spalanie LPG", "LPG consumption"],
+  approximate: ["orientacyjnie", "approximate"],
+  lpg_since: [(p) => `LPG · od ${p.date}`, (p) => `LPG · since ${p.date}`],
+  lpg_saved: [(p) => `Dzięki jeździe na LPG zaoszczędziłeś ${p.amount}`, (p) => `Driving on LPG has saved you ${p.amount}`],
+  lpg_progress: [(p) => `${p.pct}% z ${p.cost} kosztów LPG`, (p) => `${p.pct}% of ${p.cost} LPG costs`],
+  lpg_remaining: [(p) => `Do zwrotu ${p.amount}`, (p) => `${p.amount} to go`],
+  lpg_at_km: [(p) => `ok. ${p.km}`, (p) => `approx. ${p.km}`],
+  lpg_paid_back: [
+    (p) => `Instalacja się zwróciła — na czysto zaoszczędziłeś ${p.amount}`,
+    (p) => `The installation has paid for itself — net savings ${p.amount}`,
+  ],
+  lpg_no_baseline: ["Podaj spalanie Pb w ustawieniach auta, żeby liczyć oszczędność", "Set petrol consumption in the vehicle settings to see the savings"],
+  lpg_no_install_odometer: ["Podaj przebieg we wpisie montażu instalacji LPG", "Add the odometer reading to the LPG installation entry"],
+  lpg_unpriced: [
+    (p) => `${p.n} ${plural(p.n, "tankowanie", "tankowania", "tankowań")} bez ceny Pb — pominięte w oszczędności`,
+    (p) => `${p.n} ${plural(p.n, "refuel", "refuels", "refuels")} without a petrol price left out of the savings`,
+  ],
+
   // odometer form
   update_odometer: ["Aktualizuj przebieg", "Update odometer"],
   need_odometer: ["Podaj poprawny przebieg.", "Enter a valid odometer value."],
@@ -254,6 +286,8 @@ const TYPES_EN = {
   towing: "Towing",
   odometer_update: "Odometer update",
   other: "Other service",
+  lpg_install: "LPG installation",
+  lpg_service: "LPG service",
   refuel: "Refuel",
 };
 

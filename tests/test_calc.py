@@ -7,6 +7,10 @@ from custom_components.vehicle_log.calc import (
     consumption_summary,
     entry_total,
     forecast_odometer,
+    km_per_day,
+    lpg_install_point,
+    lpg_segments,
+    lpg_view,
     last_reading,
     build_view,
     odometer_update_status,
@@ -35,7 +39,7 @@ def test_parse_date_iso():
 
 
 def test_catalog_complete():
-    assert len(SERVICE_TYPES) == 27
+    assert len(SERVICE_TYPES) == 29
     assert SERVICE_TYPES["odometer_update"]["label"] == "Aktualizacja przebiegu"
     assert all(k in SERVICE_TYPES for k in REMINDER_TEMPLATES)
 
@@ -321,3 +325,196 @@ def test_build_view_survives_bad_records():
     assert v["odometer_update"]["is_due"] is False  # 72 days < default 120
     late = build_view(data, date(2027, 3, 1))["vehicles"][0]
     assert late["odometer_update"]["is_due"] is True  # bad setting -> default days
+
+
+# -- LPG ---------------------------------------------------------------------
+
+
+def lpg(odo, litres, cost, full=True, date="2026-11-01", petrol_price=None):
+    return {**rf(odo, litres, cost, full, date), "fuel_type": "LPG", "petrol_price": petrol_price}
+
+
+def pb(odo, litres, cost, full=True, date="2026-11-01", petrol_only=False):
+    return {**rf(odo, litres, cost, full, date), "fuel_type": "Pb95",
+            "price_per_litre": round(cost / litres, 3) if litres else None,
+            "petrol_only": petrol_only}
+
+
+def svc(stype, odo, total=None, date="2026-01-01"):
+    return {"kind": "service", "service_type": stype, "date": date, "time": None,
+            "odometer": odo, "total": total}
+
+
+CAR = {"id": "v1", "name": "Car", "fuel_types": ["Pb95", "LPG"], "petrol_l_per_100km": 8.0}
+TODAY = date(2026, 12, 1)
+
+
+def _spans(segs):
+    return [(s["from_odometer"], s["to_odometer"]) for s in segs]
+
+
+def test_lpg_refuel_breaks_petrol_segment():
+    segs = consumption_segments([
+        pb(1000, 40, 240), lpg(1300, 30, 90), pb(1600, 40, 240), pb(2000, 40, 240),
+    ])
+    assert _spans(segs) == [(1600, 2000)]
+    assert segs[0]["fuel"] == "petrol" and segs[0]["litres"] == 40
+
+
+def test_post_install_segment_needs_petrol_only_flag():
+    refuels = [
+        pb(500, 40, 240), pb(1000, 40, 240), pb(1600, 40, 240),
+        pb(2000, 40, 240, petrol_only=True),
+    ]
+    assert _spans(consumption_segments(refuels, install_odometer=1500)) == [
+        (500, 1000), (1600, 2000),
+    ]
+    assert len(consumption_segments(refuels)) == 3
+
+
+def test_lpg_segments_full_to_full():
+    (s,) = lpg_segments([
+        lpg(1000, 40, 120), pb(1100, 10, 60), lpg(1200, 20, 60, full=False),
+        lpg(1500, 30, 90),
+    ])
+    assert (s["from_odometer"], s["to_odometer"]) == (1000, 1500)
+    assert s["litres"] == 50 and s["l_per_100km"] == 10 and s["fuel"] == "lpg"
+
+
+def test_install_point_earliest_with_odometer():
+    p = lpg_install_point([
+        svc("lpg_install", 101000, date="2026-03-01"),
+        svc("lpg_install", None, date="2026-01-01"),
+        svc("lpg_install", 100000, date="2026-02-01"),
+        svc("oil_filter", 90000, date="2025-01-01"),
+    ])
+    assert p["odometer"] == 100000 and p["date"] == "2026-02-01"
+
+
+def test_no_install_entry_gives_no_lpg_view():
+    assert lpg_view(CAR, [pb(1000, 40, 240), svc("lpg_service", 900, 100)], TODAY) is None
+
+
+def test_install_without_odometer_status():
+    v = lpg_view(CAR, [svc("lpg_install", None, 3000)], TODAY)
+    assert v["status"] == "no_install_odometer"
+    assert v["lpg_cost"] == 3000 and v["fuel_savings"] is None
+
+
+def test_savings_basic():
+    v = lpg_view(CAR, [svc("lpg_install", 100000), lpg(100500, 50, 150, petrol_price=6.0)], TODAY)
+    assert v["status"] == "ok"
+    assert v["install_odometer"] == 100000 and v["install_date"] == "2026-01-01"
+    assert v["baseline_l_per_100km"] == 8.0 and v["baseline_source"] == "manual"
+    assert v["fuel_savings"] == 90 and v["net_savings"] == 90 and v["lpg_cost"] == 0
+    assert v["progress_pct"] is None and v["remaining"] is None
+    assert v["km_since_install"] == 500 and v["unpriced_count"] == 0
+
+
+def test_savings_price_fallback_last_known():
+    v = lpg_view(CAR, [
+        pb(99900, 40, 260), svc("lpg_install", 100000), lpg(100500, 50, 150),
+    ], TODAY)
+    assert v["fuel_savings"] == 110
+
+
+def test_savings_unpriced_counted_and_excluded():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000), lpg(100500, 50, 999),
+        lpg(101000, 50, 150, petrol_price=6.0),
+    ], TODAY)
+    assert v["unpriced_count"] == 1 and v["fuel_savings"] == 90
+
+
+def test_savings_same_odometer_counts_cost():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000), lpg(100500, 50, 150, petrol_price=6.0),
+        lpg(100500, 10, 50, petrol_price=6.0),
+    ], TODAY)
+    assert v["fuel_savings"] == 40
+
+
+def test_savings_ignores_refuels_without_odometer():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000), lpg(None, 50, 999, petrol_price=6.0),
+        lpg(100500, 50, 150, petrol_price=6.0),
+    ], TODAY)
+    assert v["fuel_savings"] == 90
+
+
+@pytest.mark.parametrize(("litres", "km", "source", "savings"), [
+    (96, 1200, "measured", 90),   # 8.0 l/100 measured over 1200 km
+    (72, 900, "manual", 150),     # 900 km is not enough: manual 10.0 used
+])
+def test_baseline_switches_to_measured_after_1000_km(litres, km, source, savings):
+    car = {**CAR, "petrol_l_per_100km": 10.0}
+    v = lpg_view(car, [
+        pb(90000, 40, 240), pb(90000 + km, litres, 432), svc("lpg_install", 100000),
+        lpg(100500, 50, 150, petrol_price=6.0),
+    ], TODAY)
+    assert v["baseline_source"] == source and v["measured_km"] == km
+    assert v["fuel_savings"] == pytest.approx(savings)
+
+
+def test_no_baseline_status():
+    car = {**CAR, "petrol_l_per_100km": None}
+    v = lpg_view(car, [svc("lpg_install", 100000), lpg(100500, 50, 150, petrol_price=6.0)], TODAY)
+    assert v["status"] == "no_baseline"
+    assert v["fuel_savings"] is None and v["net_savings"] is None
+
+
+def test_lpg_cost_and_payback():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 3000), svc("lpg_service", 100300, 200, date="2026-06-01"),
+        lpg(100500, 50, 150, petrol_price=6.0),
+    ], TODAY)
+    assert v["lpg_cost"] == 3200
+    assert v["progress_pct"] == pytest.approx(2.8125)
+    assert v["remaining"] == 3110 and v["net_savings"] == -3110
+    assert v["paid_back"] is False
+
+
+def test_payback_forecast_month():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 300, date="2026-01-01"),
+        lpg(100500, 50, 150, date="2026-01-21", petrol_price=6.0),
+    ], date(2026, 1, 21))
+    assert v["payback_odometer"] == 101667
+    assert v["payback_month"] == "2026-03"
+
+
+def test_payback_forecast_skipped_when_savings_near_zero():
+    v = lpg_view(CAR, [
+        svc("lpg_install", 100000, 4000, date="2026-01-01"),
+        lpg(100500, 50, 239.99, date="2026-01-10", petrol_price=6.0),
+        lpg(101100, 60, 288, date="2026-02-10", petrol_price=6.0),
+    ], date(2026, 2, 10))
+    assert v["fuel_savings"] == pytest.approx(0.01)
+    assert v["payback_odometer"] is None and v["payback_month"] is None
+    assert v["remaining"] == pytest.approx(3999.99)
+
+
+def test_paid_back():
+    v = lpg_view(CAR, [svc("lpg_install", 100000, 50), lpg(100500, 50, 150, petrol_price=6.0)], TODAY)
+    assert v["paid_back"] is True and v["progress_pct"] == 100 and v["remaining"] == 0
+    assert v["payback_odometer"] is None and v["net_savings"] == 40
+
+
+def test_km_per_day_needs_two_weeks():
+    assert km_per_day([svc("x", 1000, date="2026-01-01"), svc("x", 1100, date="2026-01-05")]) is None
+    assert km_per_day([svc("x", 1000, date="2026-01-01"), svc("x", 1500, date="2026-01-21")]) == 25
+
+
+def test_view_has_lpg_and_merged_segments():
+    data = {
+        "vehicles": [CAR], "reminders": [], "settings": {},
+        "entries": [{**e, "id": str(i), "vehicle_id": "v1"} for i, e in enumerate([
+            pb(90000, 40, 240), pb(90500, 40, 240), svc("lpg_install", 100000),
+            lpg(100000, 40, 120), lpg(100400, 40, 120, petrol_price=6.0),
+        ])],
+    }
+    v = build_view(data, TODAY)["vehicles"][0]
+    assert v["lpg"]["fuel_savings"] == pytest.approx(400 * 0.08 * 6 - 120)
+    assert v["consumption"]["last_l_per_100km"] == 8.0
+    assert v["lpg_consumption"]["last_l_per_100km"] == 10.0
+    assert [s["fuel"] for s in v["segments"]] == ["petrol", "lpg"]

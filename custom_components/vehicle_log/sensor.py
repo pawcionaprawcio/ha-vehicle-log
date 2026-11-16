@@ -20,6 +20,7 @@ from .entity import (
     VehicleLogCoordinator,
     VehicleLogEntity,
     async_setup_dynamic,
+    lpg_keys,
 )
 
 
@@ -76,6 +77,59 @@ class ConsumptionSensor(VehicleLogEntity, SensorEntity):
         }
 
 
+class LpgSavingsSensor(VehicleLogEntity, SensorEntity):
+    """Net LPG savings: fuel saved minus LPG install and service costs."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: VehicleLogCoordinator, vehicle_id: str) -> None:
+        super().__init__(coordinator, vehicle_id, "lpg_savings", vehicle_id)
+        self._attr_native_unit_of_measurement = coordinator.hass.config.currency
+
+    @property
+    def _lpg(self) -> dict:
+        return (self._vehicle or {}).get("lpg") or {}
+
+    @property
+    def native_value(self) -> float | None:
+        value = self._lpg.get("net_savings")
+        return None if value is None else round(value, 2)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        lpg = self._lpg
+        return {k: lpg.get(k) for k in (
+            "fuel_savings", "lpg_cost", "baseline_l_per_100km", "baseline_source",
+            "install_odometer", "km_since_install", "unpriced_count",
+        )}
+
+
+class LpgPaybackSensor(VehicleLogEntity, SensorEntity):
+    """How much of the LPG cost the fuel savings have paid back, in %."""
+
+    _attr_native_unit_of_measurement = PERCENTAGE
+
+    def __init__(self, coordinator: VehicleLogCoordinator, vehicle_id: str) -> None:
+        super().__init__(coordinator, vehicle_id, "lpg_payback", vehicle_id)
+
+    @property
+    def native_value(self) -> int | None:
+        lpg = (self._vehicle or {}).get("lpg") or {}
+        progress = lpg.get("progress_pct")
+        return None if progress is None else floor(progress)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        lpg = (self._vehicle or {}).get("lpg") or {}
+        return {k: lpg.get(k) for k in (
+            "remaining", "paid_back", "payback_odometer", "payback_month",
+        )}
+
+
+_LPG_SENSORS = {"lpg_savings": LpgSavingsSensor, "lpg_payback": LpgPaybackSensor}
+
+
 class RemainingKmSensor(ReminderEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
@@ -120,6 +174,7 @@ def _entities(coordinator: VehicleLogCoordinator, view: dict) -> list:
             ForecastOdometerSensor(coordinator, v["id"]),
             ConsumptionSensor(coordinator, v["id"]),
         ]
+        out += [_LPG_SENSORS[k](coordinator, v["id"]) for k in lpg_keys(v)]
         for r in v["reminders"]:
             out += [
                 RemainingKmSensor(coordinator, v["id"], r["id"]),
