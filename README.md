@@ -4,6 +4,16 @@ A car service journal for Home Assistant, with its own sidebar panel.
 
 Keep a log of service entries, refuels and odometer readings for one or more vehicles. Set reminders by date and/or mileage and get notified when they are due. Everything is stored locally in Home Assistant; no cloud, no account.
 
+## Screenshots
+
+The sample data below is made up (an Ursus C-330 tractor, an Izera and a Polonez Caro).
+
+![Vehicle Log panel on desktop: summary card with odometer and fuel consumption, reminders, and entries grouped by month](https://raw.githubusercontent.com/pawcionaprawcio/ha-vehicle-log/main/docs/images/desktop-entries.png)
+
+| Entries | Reminders | Refuel form | Garage |
+| :---: | :---: | :---: | :---: |
+| ![Entries tab on a phone](https://raw.githubusercontent.com/pawcionaprawcio/ha-vehicle-log/main/docs/images/phone-entries.png) | ![Reminders tab with status chips and progress bars](https://raw.githubusercontent.com/pawcionaprawcio/ha-vehicle-log/main/docs/images/phone-reminders.png) | ![Refuel form for a vehicle with Pb95 and LPG](https://raw.githubusercontent.com/pawcionaprawcio/ha-vehicle-log/main/docs/images/phone-refuel.png) | ![Garage tab with vehicles, settings and the import](https://raw.githubusercontent.com/pawcionaprawcio/ha-vehicle-log/main/docs/images/phone-garage.png) |
+
 ## Features
 
 - Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels.
