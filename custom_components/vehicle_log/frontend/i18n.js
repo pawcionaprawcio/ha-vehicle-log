@@ -169,6 +169,7 @@ const S = {
   litres: ["Litry", "Litres"],
   two_values_hint: ["Wpisz dwie wartości, trzecia zostanie wyliczona.", "Enter two values; the third is calculated."],
   full_tank: ["Do pełna", "Full tank"],
+  partial_tank: ["Tankowanie częściowe", "Partial refuel"],
   full_tank_hint: ["Potrzebne do liczenia spalania", "Needed to calculate consumption"],
 
   // reminder form

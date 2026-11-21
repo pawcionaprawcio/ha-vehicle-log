@@ -33,6 +33,13 @@ export class VlEntries extends LitElement {
       .odo .k { font-size: 12px; color: var(--secondary-text-color, #727272); }
       .odo .big { font-size: 32px; font-weight: 400; line-height: 1.2; }
       .odo .est { font-size: 13px; color: var(--secondary-text-color, #727272); }
+      .badge.refuel { position: relative; }
+      .full-mark {
+        position: absolute; right: -3px; bottom: -3px; width: 18px; height: 18px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; --mdc-icon-size: 12px;
+        background: var(--success-color, #43a047); color: #fff;
+        box-shadow: 0 0 0 2px var(--ha-card-background, var(--card-background-color, #fff));
+      }
       .stale { padding: 4px 16px 0; font-size: 13px; color: var(--warning-color, #ffa600); }
       .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px 16px; }
       .tile {
@@ -242,7 +249,10 @@ export class VlEntries extends LitElement {
       const fuel = e.fuel_type === "LPG" ? "lpg" : "petrol";
       const seg = (v.segments || []).find((s) => s.fuel === fuel && s.to_odometer === e.odometer && s.to_date === e.date);
       return html`<button class="li" @click=${() => this._open(e)}>
-        <div class="badge b-refuel"><ha-icon icon="mdi:gas-station"></ha-icon></div>
+        <div class="badge b-refuel refuel" title=${e.full_tank ? t("full_tank") : t("partial_tank")}>
+          <ha-icon icon=${e.full_tank ? "mdi:gas-station" : "mdi:gas-station-outline"}></ha-icon>
+          ${e.full_tank ? html`<span class="full-mark" aria-label=${t("full_tank")}><ha-icon icon="mdi:check-bold"></ha-icon></span>` : nothing}
+        </div>
         <div class="m"><div class="t1">${title}</div><div class="t2">${sub}</div></div>
         <div class="e">
           <div class="t1">${fmtMoney(e.total)}</div>

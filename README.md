@@ -19,6 +19,7 @@ The sample data below is made up (an Ursus C-330 tractor, an Izera and a Polonez
 - Several vehicles, each with its own odometer, entries and reminders, and one or two fuel types (e.g. Pb95 + LPG). The refuel form offers only that vehicle's fuels, and hides the choice when the vehicle has just one.
 - Service entries (oil, filters, brakes, tyres, ...), refuels and odometer updates.
 - Fuel consumption (L/100 km) calculated from full-tank refuels, per fuel.
+- In the entries list, a full-tank refuel has a check mark on its pump icon; a partial refuel shows an outlined pump and "(partial)".
 - LPG savings: how much driving on LPG saves compared with petrol, and when the installation pays for itself (see below).
 - Reminders by date, mileage or both (for example "every 12 months or 10 000 km"), with ready-made templates.
 - Forecast odometer based on your driving history, so mileage-based reminders can warn you in advance.
