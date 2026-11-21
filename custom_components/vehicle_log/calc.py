@@ -116,7 +116,7 @@ FORECAST_MIN_KM = 500
 # A payback further away than this is noise (savings near zero), not a forecast.
 PAYBACK_MAX_KM = 500_000
 PAYBACK_MAX_DAYS = 365 * 30
-LPG_MODE_MIN_KM = 500
+LPG_MODE_MIN_KM = 200
 
 
 def _sorted_refuels(refuels: list[dict]) -> list[dict]:
