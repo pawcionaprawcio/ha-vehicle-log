@@ -91,6 +91,18 @@ export class VlEntries extends LitElement {
     </div>`;
   }
 
+  /** Tile: LPG litres per 100 km over the last full-to-full LPG segment. */
+  _lastLpgTile(v) {
+    const c = v.lpg_consumption;
+    const segs = (v.segments || []).filter((s) => s.fuel === "lpg");
+    const seg = segs.length ? segs[segs.length - 1] : null;
+    return html`<div class="tile">
+      <div class="k">${t("last_consumption_lpg")}</div>
+      <div class="v">${c ? `~${this._l100(c.last_l_per_100km)}` : "—"}</div>
+      <div class="s">${c && seg ? t("refuel_on", { date: fmtShortDate(seg.to_date) }) : t("last_lpg_hint")}</div>
+    </div>`;
+  }
+
   _lpgSection(v) {
     const l = v.lpg;
     if (!l) return nothing;
@@ -166,11 +178,12 @@ export class VlEntries extends LitElement {
                 <div class="s">${c ? `${fmtMoney(c.avg_cost_per_100km)} / 100 km` : pb ? `(${t("entered")})` : t("consumption_hint")}</div>
               </div>
               <div class="tile">
-                <div class="k">${t("last_consumption")}</div>
+                <div class="k">${v.lpg || v.lpg_mode ? t("last_consumption_pb") : t("last_consumption")}</div>
                 <div class="v">${c ? this._l100(c.last_l_per_100km) : "—"}</div>
                 ${c && lastSeg ? html`<div class="s">${t("refuel_on", { date: fmtShortDate(lastSeg.to_date) })}</div>` : nothing}
               </div>
               ${v.lpg_mode ? this._lpgModeTile(v.lpg_mode) : nothing}
+              ${v.lpg_mode ? this._lastLpgTile(v) : nothing}
             </div>
             ${this._lpgSection(v)}`}
       ${next ? this._nextRow(next) : nothing}
