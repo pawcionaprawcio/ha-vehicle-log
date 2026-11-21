@@ -633,3 +633,16 @@ def test_view_no_lpg_mode_for_petrol_car():
 def test_view_lpg_mode_for_legacy_car_with_lpg_refuels():
     v = _view_of({**CAR, "fuel_types": []}, [lpg(100, 40, 120), lpg(600, 50, 150)])
     assert v["lpg_mode"]["lpg_l_per_100km"] == pytest.approx(10.0)
+
+
+def test_view_last_lpg_consumption_for_car_bought_with_lpg():
+    v = _view_of(CAR, [lpg(50000, 40, 120), lpg(50300, 36, 108), lpg(50700, 44, 132)])
+    assert v["lpg_consumption"]["last_l_per_100km"] == pytest.approx(11.0)
+    assert v["lpg_consumption"]["avg_l_per_100km"] == pytest.approx(80 / 700 * 100)
+    last = [s for s in v["segments"] if s["fuel"] == "lpg"][-1]
+    assert last["to_odometer"] == 50700
+
+
+def test_view_last_lpg_consumption_empty_after_one_lpg_refuel():
+    v = _view_of(CAR, [lpg(50000, 40, 120)])
+    assert v["lpg_consumption"] is None
